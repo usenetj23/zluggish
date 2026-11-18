@@ -240,3 +240,31 @@ await test('the blob rider furthest ahead tells a joke in the chat, but only whi
     'only the rider that the blob rides with hears it',
   );
 });
+
+await test('.blob jokes switches the joke rider on and off, remembers it and keeps the riders', async (t) => {
+  const f = runtimeFixture(t);
+  const rider = await f.accounts.create('Command Rider', 'test-password');
+  const id = BigInt(rider.player_id);
+  const simulation = new Simulation(f, () => 100);
+  t.after(() => simulation.close());
+  await simulation.ready;
+
+  const riders = () => simulation.blobs.get(id)?.riders.map((blobRider) => blobRider.profile.id);
+
+  assert.equal(simulation.command(id, 'blob jokes'), 'Start a blob first.');
+  assert.equal(simulation.command(id, 'blob 6'), 'Blob settings saved.');
+  const before = riders();
+  assert.equal(simulation.jokeTellers.has(id), false);
+
+  assert.equal(simulation.command(id, 'blob jokes'), 'Jokes on.');
+  assert.equal(simulation.jokeTellers.has(id), true);
+  assert.equal(f.settings.world(`blob:${id}`).jokes, true);
+  assert.deepEqual(riders(), before, 'the same riders stay on the road');
+
+  simulation.loadBlob(id);
+  assert.equal(simulation.jokeTellers.has(id), true, 'a rebuilt blob keeps the joke rider');
+
+  assert.equal(simulation.command(id, 'blob jokes'), 'Jokes off.');
+  assert.equal(simulation.jokeTellers.has(id), false);
+  assert.equal(f.settings.world(`blob:${id}`).jokes, false);
+});

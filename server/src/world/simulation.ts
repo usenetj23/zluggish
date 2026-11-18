@@ -344,6 +344,20 @@ export class Simulation {
     if (state) blob.receive(state, 0);
   }
 
+  /** `.blob jokes`: the joke rider on or off, remembered in the world settings. The riders of the blob stay. */
+  private toggleJokes(id: bigint, blob: Blob | undefined) {
+    if (!blob) return 'Start a blob first.';
+    const on = !this.jokeTellers.has(id);
+    const saved = this.runtime.settings.world(`blob:${id}`);
+    saved.jokes = on;
+    this.runtime.settings.saveWorld(`blob:${id}`, saved);
+
+    if (on) this.jokeTellers.set(id, new JokeTeller(blob.rng, this.jokes, blob.config.jokeInterval, this.now()));
+    else this.jokeTellers.delete(id);
+
+    return on ? 'Jokes on.' : 'Jokes off.';
+  }
+
   /** The bot furthest ahead tells the rider a joke in the chat, under its own name, while the rider is riding. */
   private tellJoke(id: bigint, blob: Blob, now: number, time: bigint) {
     const teller = this.jokeTellers.get(id);
@@ -691,6 +705,8 @@ export class Simulation {
         return 'New riders on the road.';
       }
 
+      if (argument === 'jokes') return this.toggleJokes(id, blob);
+
       const saved = this.runtime.settings.world(`blob:${id}`);
 
       if (argument === 'record') saved.record = !(blob?.config.record ?? false);
@@ -698,7 +714,7 @@ export class Simulation {
       else if (/^\d+$/.test(argument) && Number(argument) <= 30 && Number(argument) > 0) {
         saved.enabled = true;
         saved.riders = Number(argument);
-      } else return 'Usage: .blob <1..30>, new, off, record, hammer, toast, attack, lead';
+      } else return 'Usage: .blob <1..30>, new, off, record, jokes, hammer, toast, attack, lead';
       this.runtime.settings.saveWorld(`blob:${id}`, saved);
       this.loadBlob(id);
 
