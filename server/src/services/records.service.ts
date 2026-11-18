@@ -21,6 +21,10 @@ export class RecordsService extends BaseService {
     return this.recordsRepository.riddenClimbRoads(...values);
   }
 
+  climbPortalStats(...values: Parameters<RecordsRepository['climbPortalStats']>) {
+    return this.recordsRepository.climbPortalStats(...values);
+  }
+
   findPrivateEvent(...values: Parameters<RecordsRepository['findPrivateEvent']>) {
     return this.recordsRepository.findPrivateEvent(...values);
   }

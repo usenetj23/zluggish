@@ -9,7 +9,9 @@ import { z } from 'zod';
 import { ApplicationError, UnreadableCredentialsError } from '#src/errors';
 import { credentials, password, newUser } from '#src/dtos/management.dto';
 import type { HttpRuntime } from '#src/http/runtime';
+import { readClimbs } from '#src/http/climbs';
 import { peerAddress } from '#src/http/routes/accounts';
+import { WORLD_TIME_EPOCH_MS } from '#src/world/state';
 import { resolve } from 'node:path';
 import { packageRoot, packageVersion, supportedZwiftVersion } from '#src/config/load';
 
@@ -28,7 +30,7 @@ function sameOrigin(origin: string | undefined, url: string, publicUrl: string |
 
 export function createWebApp(runtime: HttpRuntime) {
   const app = new Hono<WebEnv>();
-  const { management, accounts, durability, files, activities } = runtime.services;
+  const { management, accounts, durability, files, activities, records } = runtime.services;
   const { sessions } = management;
   const attempts = new Map<string, { count: number; until: number }>();
   const cookie = 'zluggish_web_session';
@@ -224,6 +226,31 @@ export function createWebApp(runtime: HttpRuntime) {
 
     return c.json({ activities: rows.slice(0, 20), hasMore: rows.length > 20 });
   });
+  app.get('/api/me/climbs', (c) => {
+    const stats = new Map(
+      records
+        .climbPortalStats(sessions.require(c.get('sessionId')).player_id)
+        .map((row) => [String(row.route_hash), row]),
+    );
+
+    const climbs = [];
+
+    for (const climb of readClimbs(runtime)) {
+      const row = stats.get(climb.road);
+
+      if (row)
+        climbs.push({
+          road: climb.road,
+          name: climb.name,
+          rides: row.rides,
+          bestMs: row.best_ms,
+          lastRide:
+            row.last_world_time === null ? null : new Date(row.last_world_time + WORLD_TIME_EPOCH_MS).toISOString(),
+        });
+    }
+
+    return c.json({ climbs });
+  });
   app.get('/api/me/activities/:id', (c) =>
     c.json(activities.ownDetail(sessions.require(c.get('sessionId')).player_id, activityId.parse(c.req.param('id')))),
   );
@@ -414,6 +441,7 @@ export function createWebApp(runtime: HttpRuntime) {
     '/zwift',
     '/activities',
     '/activities/*',
+    '/climbs',
     '/manage',
     '/manage/*',
   ])

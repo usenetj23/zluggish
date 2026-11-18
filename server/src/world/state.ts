@@ -4,8 +4,11 @@ import { Lifecycle } from '#src/world/lifecycle';
 import type { Simulation } from '#src/world/simulation';
 import { clone, create, toBinary } from '@bufbuild/protobuf';
 
+/** Zwift world time counts milliseconds from this Unix time. */
+export const WORLD_TIME_EPOCH_MS = 1_414_016_075_000;
+
 export function worldTime() {
-  return BigInt(Date.now() - 1_414_016_075_000);
+  return BigInt(Date.now() - WORLD_TIME_EPOCH_MS);
 }
 
 export function course(state: PlayerState) {

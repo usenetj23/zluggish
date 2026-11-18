@@ -56,6 +56,24 @@ export class RecordsRepository {
       .map((row) => String(row.route_hash));
   }
 
+  /** Per climb portal road this rider has ridden: how often, the fastest time and the latest world time. */
+  climbPortalStats(player: number) {
+    return this.executor.all(
+      query
+        .selectFrom('route_result')
+        .select('route_hash')
+        .select(({ fn }) => [
+          fn.countAll<number>().as('rides'),
+          fn.min('elapsed_ms').filterWhere('elapsed_ms', '>', 0).as('best_ms'),
+          fn.max('world_time').as('last_world_time'),
+        ])
+        .where('player_id', '=', player)
+        .where('route_hash', '>=', 10_000)
+        .where('route_hash', '<=', 11_000)
+        .groupBy('route_hash'),
+    );
+  }
+
   ensureRoute(player: number, hash: number) {
     const existing = this.executor.get(
       query.selectFrom('route_result').select('id').where('player_id', '=', player).where('route_hash', '=', hash),

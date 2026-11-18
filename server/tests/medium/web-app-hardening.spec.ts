@@ -365,3 +365,38 @@ await test('riders list, inspect and download only their own activities in the w
   assert.equal(await responseStatus(owner('/api/me/activities/1%27')), 400);
   assert.equal(await responseStatus(web.request(`http://local:8080/api/me/activities`)), 401);
 });
+
+await test('web app lists the climb portals a rider has ridden with the best time and latest ride', async (t) => {
+  const f = await mediumFixture(t);
+  const web = createWebApp(f);
+
+  const insert = f.accounts.db.prepare(
+    'INSERT INTO route_result(player_id,route_hash,world_time,elapsed_ms) VALUES (?,?,?,?)',
+  );
+
+  // 10052 is Alto de Patios; the ride without a time must not count as a best time.
+  insert.run(f.rider.player_id, 10_052, 380_000_000_000, 600_000);
+  insert.run(f.rider.player_id, 10_052, 381_000_000_000, 540_000);
+  insert.run(f.rider.player_id, 10_052, 379_000_000_000, null);
+  insert.run(f.rider.player_id, 3_114_603_308, 381_000_000_000, 1000);
+  insert.run(f.other.player_id, 10_011, 381_000_000_000, 700_000);
+
+  const { id: session } = f.services.management.sessions.create(f.accounts.identityOf(f.rider));
+
+  const response = await web.request('http://local:8080/api/me/climbs', {
+    headers: { Cookie: `zluggish_web_session=${session}` },
+  });
+
+  assert.equal(response.status, 200);
+  const body = await json(response);
+
+  assert.deepEqual(body.climbs, [
+    {
+      road: '10052',
+      name: 'Alto de Patios (5.9 km / 376 m)',
+      rides: 3,
+      bestMs: 540_000,
+      lastRide: '2026-11-18T15:34:35.000Z',
+    },
+  ]);
+});

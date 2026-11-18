@@ -4,6 +4,7 @@
   import ProfileData from './ProfileData.svelte';
   import Connections from './Connections.svelte';
   import Activities from './Activities.svelte';
+  import Climbs from './Climbs.svelte';
   import Layout from '../components/Layout.svelte';
   import UserRow from '../components/UserRow.svelte';
   import Avatar from '../components/Avatar.svelte';
@@ -182,7 +183,9 @@
                           ? 'Integrations'
                           : path === '/settings'
                             ? 'Settings'
-                            : 'Profile',
+                            : path === '/climbs'
+                              ? 'Climbs'
+                              : 'Profile',
   );
 
   const initials = (r: User) => `${r.first_name.charAt(0)}${r.last_name.charAt(0)}`.toUpperCase();
@@ -766,6 +769,7 @@
     <nav class="menu" aria-label="Main">
       {@render link('/', 'Profile', !manage && title === 'Profile')}
       {@render link('/activities', 'Activities', title === 'Activities')}
+      {@render link('/climbs', 'Climbs', title === 'Climbs')}
       {@render link('/import', 'Import', path === '/import' || path === '/import/local' || path === '/zwift')}
       {@render link('/export', 'Export', path === '/export')}
       {@render link('/integrations', 'Integrations', path === '/integrations')}
@@ -1421,6 +1425,8 @@
           />{/key}
       {:else if path === '/activities' || path.startsWith('/activities/')}
         <Activities {path} {api} {go} />
+      {:else if path === '/climbs'}
+        <Climbs {api} />
       {:else if path === '/settings'}
         {#if settings}
           <section class="panel narrow ghosts" aria-labelledby="ghosts-title">
