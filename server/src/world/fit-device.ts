@@ -18,6 +18,36 @@ const FIELD_IDS = new Map<number, { manufacturer: number; product: number; seria
 
 const MAX = { manufacturer: 0xff_ff, product: 0xff_ff, serial: 0xff_ff_ff_ff };
 
+/** Garmin, the manufacturer that Garmin Connect expects for an Edge. */
+export const GARMIN_MANUFACTURER = 1;
+
+/** Edge models that a rider can choose, by the product number of the FIT profile. */
+export const GARMIN_DEVICES = [
+  { product: 3843, name: 'Edge 1040' },
+  { product: 4440, name: 'Edge 1050' },
+  { product: 3570, name: 'Edge 1030 Plus' },
+  { product: 3122, name: 'Edge 830' },
+  { product: 3121, name: 'Edge 530' },
+  { product: 3558, name: 'Edge 130 Plus' },
+  { product: 2713, name: 'Edge 1030' },
+  { product: 2909, name: 'Edge 130' },
+  { product: 2530, name: 'Edge 820' },
+] as const;
+
+/** A serial number of one's own for each rider (FNV-1a of the player id), so that the riders of a server do not share a device. */
+export function defaultSerial(player: number) {
+  let hash = 0x81_1c_9d_c5;
+
+  for (const char of `zluggish-edge-${player}`) hash = Math.imul(hash ^ (char.codePointAt(0) ?? 0), 0x01_00_01_93);
+
+  return ((hash >>> 0) % 4_000_000_000) + 1;
+}
+
+/** The text of garmin_device.txt for a device of Garmin. */
+export function deviceText(product: number, serial: number) {
+  return `manufacturer=${GARMIN_MANUFACTURER}\nproduct=${product}\nserial=${serial}\n`;
+}
+
 /** The lines `manufacturer=1`, `product=3843` and `serial=1234567890` of garmin_device.txt, or null. */
 export function parseDeviceIdentity(text: string): DeviceIdentity | null {
   const values = new Map<string, number>();

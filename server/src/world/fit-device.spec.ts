@@ -1,4 +1,4 @@
-import { parseDeviceIdentity, patchDeviceIdentity } from '#src/world/fit-device';
+import { defaultSerial, deviceText, parseDeviceIdentity, patchDeviceIdentity } from '#src/world/fit-device';
 import { Decoder, Encoder, Stream, type DeviceInfoMesg, type FileIdMesg, type RecordMesg } from '@garmin/fitsdk';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -104,6 +104,19 @@ await test('a file whose file_id has no serial number gets the manufacturer and 
   );
   assert.equal(after.sound, true);
   assert.deepEqual(after.messages.recordMesgs, decode(fit).messages.recordMesgs);
+});
+
+await test('each rider gets a serial number of their own, always the same', () => {
+  const serials = [1, 2, 3, 12_345_678].map((player) => defaultSerial(player));
+
+  assert.equal(new Set(serials).size, serials.length);
+  assert.ok(serials.every((serial) => serial >= 1 && serial <= 4_000_000_000));
+  assert.deepEqual(
+    [1, 2, 3, 12_345_678].map((player) => defaultSerial(player)),
+    serials,
+  );
+  assert.equal(deviceText(3843, 7), 'manufacturer=1\nproduct=3843\nserial=7\n');
+  assert.deepEqual(parseDeviceIdentity(deviceText(3843, 7)), { manufacturer: 1, product: 3843, serial: 7 });
 });
 
 await test('patching twice gives the same file, and the file given is not changed', () => {

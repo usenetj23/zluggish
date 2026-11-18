@@ -5,6 +5,7 @@ import { UploadProvider } from '#src/enum';
 import { ApplicationError, UnreadableCredentialsError } from '#src/errors';
 import type { HttpRuntime } from '#src/http/runtime';
 import type { WebEnv } from '#src/http/web-app';
+import { GARMIN_DEVICES, defaultSerial, deviceText, parseDeviceIdentity } from '#src/world/fit-device';
 
 const provider = z.enum(['strava', 'garmin', 'intervals']);
 const credentials = z.strictObject({ username: z.string().trim().min(1).max(500), secret: z.string().max(10_000) });
@@ -92,6 +93,39 @@ export function webConnectionRoutes(app: Hono<WebEnv>, runtime: HttpRuntime) {
       .parse(await c.req.json());
 
     documents.put(player, 'strava4_session.txt', input.cookie);
+
+    return c.json({ ok: true });
+  });
+  // The Garmin device that the FIT file sent to Garmin Connect says it was recorded on.
+  app.get('/api/me/connections/garmin/device', (c) => {
+    const player = sessions.require(c.get('sessionId')).player_id;
+
+    return c.json({
+      device: parseDeviceIdentity(documents.text(player, 'garmin_device.txt') ?? ''),
+      devices: GARMIN_DEVICES,
+    });
+  });
+  app.put('/api/me/connections/garmin/device', async (c) => {
+    const player = sessions.require(c.get('sessionId')).player_id;
+
+    const input = z
+      .strictObject({
+        product: z.number().int().min(1).max(65_535),
+        serial: z.number().int().min(1).max(4_294_967_295).optional(),
+      })
+      .parse(await c.req.json());
+
+    const current = parseDeviceIdentity(documents.text(player, 'garmin_device.txt') ?? '');
+    documents.put(
+      player,
+      'garmin_device.txt',
+      deviceText(input.product, input.serial ?? current?.serial ?? defaultSerial(player)),
+    );
+
+    return c.json({ ok: true });
+  });
+  app.delete('/api/me/connections/garmin/device', (c) => {
+    documents.remove(sessions.require(c.get('sessionId')).player_id, 'garmin_device.txt');
 
     return c.json({ ok: true });
   });

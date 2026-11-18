@@ -9,7 +9,7 @@
     saved,
     save,
   }: {
-    api: <Body>(url: string, method?: string, data?: Record<string, string | boolean>) => Promise<Body>;
+    api: <Body>(url: string, method?: string, data?: Record<string, string | number | boolean>) => Promise<Body>;
     stravaMethod: string;
     bridgeFolder: string;
     /** The settings the server holds, so a tile does not change before its choice is saved. */
@@ -21,7 +21,16 @@
 
   type Integration = Provider | 'trainingpeaks';
 
-  type Connection = { username: string; saved: boolean; unreadable: boolean; authorized?: boolean; cookie?: boolean };
+  /** The Edge that the FIT file sent to Garmin Connect says it was recorded on. */
+  type Device = { manufacturer: number; product: number; serial: number };
+
+  type Connection = {
+    username: string;
+    saved: boolean;
+    unreadable: boolean;
+    authorized?: boolean;
+    cookie?: boolean;
+  };
 
   type UploadJob = { activity_id: number; provider: string; state: string };
 
@@ -48,6 +57,45 @@
     } catch {
       cookieStatus = 'error';
     }
+  }
+
+  /** The model chosen in the list, until it is saved; null shows the one that is saved. */
+  let deviceProduct = $state<string | null>(null);
+  let deviceSerial = $state('');
+
+  type GarminDevices = { device: Device | null; devices: { product: number; name: string }[] };
+
+  let garminDevices = $state<GarminDevices | null>(null);
+
+  const productChosen = $derived(deviceProduct ?? String(garminDevices?.device?.product ?? ''));
+
+  async function loadDevice() {
+    garminDevices = await api<GarminDevices>('/api/me/connections/garmin/device');
+  }
+
+  const deviceName = (device: Device | null | undefined) =>
+    device
+      ? `${garminDevices?.devices.find((model) => model.product === device.product)?.name ?? `Product ${device.product}`} · serial number ${device.serial}`
+      : 'None';
+
+  function saveDevice() {
+    void run(async () => {
+      if (productChosen === '') {
+        await api('/api/me/connections/garmin/device', 'DELETE');
+        message = 'Device removed.';
+      } else {
+        const product = Number(productChosen);
+
+        if (deviceSerial.trim() === '') await api('/api/me/connections/garmin/device', 'PUT', { product });
+        else await api('/api/me/connections/garmin/device', 'PUT', { product, serial: Number(deviceSerial) });
+
+        message = 'Device saved.';
+      }
+
+      await loadDevice();
+      deviceProduct = null;
+      deviceSerial = '';
+    });
   }
 
   let code = $state('');
@@ -319,6 +367,7 @@
     }).then(() => {
       // Verification is not stored, so a saved session cookie is tested again whenever the page opens.
       if (connections?.strava.cookie && saved.stravaMethod === 'free') void testCookie();
+      void loadDevice();
     });
   });
 </script>
@@ -570,6 +619,35 @@
           {@render disconnectButton('garmin')}
         </div>
         {@render storedList('garmin')}
+        <h3>Device in the FIT file</h3>
+        <p class="muted">
+          Garmin Connect gets each ride as recorded on this Edge. Strava and the other services get the file of the
+          game. Now: {deviceName(garminDevices?.device)}.
+        </p>
+        <label class="field" for="garmin-device"
+          >Model
+          <select
+            id="garmin-device"
+            value={productChosen}
+            disabled={busy}
+            onchange={(event) => (deviceProduct = event.currentTarget.value)}
+          >
+            <option value="">None: send the file of the game</option>
+            {#each garminDevices?.devices ?? [] as model (model.product)}
+              <option value={String(model.product)}>{model.name}</option>
+            {/each}
+          </select>
+        </label>
+        <TextField
+          id="garmin-serial"
+          label="Serial number"
+          bind:value={deviceSerial}
+          maxlength={10}
+          hint="Leave empty to keep the current one, or to get a number of your own."
+        />
+        <div class="actions">
+          <button disabled={busy} onclick={saveDevice}>Save device</button>
+        </div>
       {:else if open === 'intervals'}
         <p class="muted">
           Upload finished rides and bring your planned cycling workouts into Zwift. Find the athlete ID and API key
