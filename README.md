@@ -497,6 +497,7 @@ export default defineConfig({
   - `.blob` - show status
   - `.blob new` - same number of riders, new faces
   - `.blob off` - stop
+  - `.blob jokes` - switch the joke rider on or off (see below)
 - Gestures (F-keys) that move the group:
   - Elbow (F1) - come and pass me
   - Hammertime (F4) - full gas, segment on
