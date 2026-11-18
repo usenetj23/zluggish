@@ -15,6 +15,7 @@ import type { JobsService } from '#src/services/jobs.service';
 import { SettingsService } from '#src/services/settings.service';
 import type { StoredEntry } from '#src/dtos/workout.dto';
 import { WorkoutsService } from '#src/services/workout.service';
+import { parseDeviceIdentity, patchDeviceIdentity } from '#src/world/fit-device';
 import { loadRouteNames, titleWithRoute } from '#src/world/route-names';
 import { clearField, clone, fromBinary, toBinary } from '@bufbuild/protobuf';
 import { resolve } from 'node:path';
@@ -419,8 +420,20 @@ export class UploadsService extends BaseService {
       this.garminRepository.tokenStore(this.riderDocuments, player),
       this.runtime.config.integrations.garmin.domain,
       activity.fitFilename,
-      activity.fit,
+      this.forGarmin(player, activity.fit),
     );
+  }
+
+  /** The FIT file for Garmin Connect: with the device of garmin_device.txt in it, when the rider has chosen one. */
+  private forGarmin(player: number, fit: Uint8Array) {
+    const identity = parseDeviceIdentity(this.riderDocuments.text(player, 'garmin_device.txt') ?? '');
+
+    if (!identity) return fit;
+    const result = patchDeviceIdentity(fit, identity);
+
+    if (result.patched === 0) this.warn('The FIT file could not be given the Garmin device; it is sent as it is');
+
+    return result.patched > 0 ? result.fit : fit;
   }
 
   async runalyze(player: number, activity: Activity) {
