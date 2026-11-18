@@ -363,9 +363,10 @@ export class Simulation {
     const teller = this.jokeTellers.get(id);
 
     if (!teller) return;
-    const state = this.runtime.world.online.get(id);
+    // The time a packet arrived, on this server's clock: the clock inside a packet is the game's own.
+    const last = blob.trail.entries.at(-1);
 
-    if (!state || Number(time - state.worldTime) / 1000 > JOKE_MAX_STATE_AGE_S) {
+    if (!last || now - last.time > JOKE_MAX_STATE_AGE_S) {
       // Nobody is riding: no joke should be waiting when riding starts again.
       teller.reset(now);
 

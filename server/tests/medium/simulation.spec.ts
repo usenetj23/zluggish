@@ -202,32 +202,41 @@ await test('the blob rider furthest ahead tells a joke in the chat, but only whi
       .filter((update) => update.waType === WA_TYPE.WAT_SPA)
       .map((update) => fromBinary(SocialPlayerActionSchema, update.payload));
 
-  const ride = (age: bigint) => {
-    for (let index = 0; index < 60; index++) {
-      now++;
-      f.world.receive(
+  const packet = () =>
+    f.world.receive(
+      id,
+      create(PlayerStateSchema, {
         id,
-        create(PlayerStateSchema, {
-          id,
-          f19: (6 << 16) | 4,
-          aux3: 1 << 8,
-          roadTime: 1_000_000 + now * 10,
-          worldTime: worldTime() - age,
-        }),
-      );
+        f19: (6 << 16) | 4,
+        aux3: 1 << 8,
+        roadTime: 1_000_000 + now * 10,
+        worldTime: worldTime(),
+      }),
+    );
+
+  const ride = (seconds: number, packets: boolean) => {
+    for (let index = 0; index < seconds; index++) {
+      now++;
+
+      if (packets) packet();
       simulation.tick();
     }
   };
 
-  // The last packet is 30 s old: nobody is riding, so nothing is said however long it lasts.
-  ride(30_000n);
-  assert.deepEqual(jokes(), []);
+  // The rider was riding, then the packets stop. Once the last one is 10 s old nobody is riding,
+  // so nothing is said however long it lasts.
+  packet();
+  assert.equal(simulation.blobs.get(id)?.trail.entries.length, 1, 'the blob has seen the rider');
+  ride(11, false);
+  const before = jokes().length;
+  ride(60, false);
+  assert.equal(jokes().length, before, 'no joke while nobody is riding');
 
-  ride(0n);
+  ride(60, true);
   const told = jokes();
   const names = new Set(simulation.blobs.get(id)?.riders.map((blobRider) => blobRider.profile.firstName));
-  assert.ok(told.length > 0, 'a joke was told while riding');
-  assert.ok(told.length <= 8, 'jokes are spaced by the interval');
+  assert.ok(told.length > before, 'a joke was told while riding');
+  assert.ok(told.length <= before + 8, 'jokes are spaced by the interval');
 
   for (const chat of told) {
     assert.equal(chat.spaType, SocialPlayerActionType.SOCIAL_TEXT_MESSAGE);
