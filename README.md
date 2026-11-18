@@ -504,6 +504,7 @@ export default defineConfig({
   - I'm toast (F7) - easing off
   - Bell (F8) - I want a turn in front
 - Joke rider (off by default): set `soloBlob.jokes` to `true`, or tick `jokes` in the world settings of the web app. While you ride, the bot furthest ahead tells you a joke in the chat now and then, under its own name. `jokeInterval` is the average number of seconds between two jokes (default 300) and `jokeLanguage` is `auto`, which follows the flag of your profile and falls back to English, or a language from `assets/data/jokes.txt` (English and Polish are included; add your own lines or a new language there). Jokes do not repeat until the whole list of a language has been told.
+- With the joke rider on, the same bot also remarks on your ride (`jokeCommentary`, on by default): the route about a minute and a half in, every 15 minutes and every 10 km, a climb or a descent, a clearly stronger or weaker last minute, and how hard you are riding against your FTP (`ftp` in watts, or `0` to take it from your Zwift profile) with a question after a burst over FTP. A sprint or KOM you finish is told at once with your earlier times on it, and a bot that gives a hand signal says a line with it (`gestureTalk`, the chance from 0 to 1, default 0.5). `commentaryGap` is the least number of seconds between two remarks (default 120). The texts, in English and Polish, are in `assets/data/commentary.txt`; add your own or a new language there.
 
 </details>
 

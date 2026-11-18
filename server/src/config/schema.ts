@@ -407,6 +407,10 @@ export const configSchema = z
           .refine((v) => !v.includes('\0'), 'Invalid string')
           .default('auto'),
         jokeInterval: z.number().min(0).default(300),
+        jokeCommentary: z.boolean().default(true),
+        commentaryGap: z.number().min(0).default(120),
+        ftp: z.number().int().min(0).default(0),
+        gestureTalk: z.number().min(0).max(1).default(0.5),
         playerId: z.number().int().safe().min(1).default(1),
         record: z.boolean().default(false),
       })
