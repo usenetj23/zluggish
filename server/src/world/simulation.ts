@@ -9,6 +9,8 @@ import { SettingsService } from '#src/services/settings.service';
 import { Blob } from '#src/world/blob';
 import { Random, clamp } from '#src/world/geometry';
 import { GestureDirector, gestureUpdate } from '#src/world/gestures';
+import type { Jokes } from '#src/world/jokes';
+import { JokeTeller, chatUpdate, loadJokes, resolveLanguage } from '#src/world/jokes';
 import type { ReplayRider } from '#src/world/peloton';
 import { Peloton } from '#src/world/peloton';
 import { RiderPool, ghostAppearanceSchema } from '#src/world/riders';
@@ -40,6 +42,9 @@ interface RiderGhosts {
   playbacks: GhostPlayback[];
 }
 
+/** No joke when the last packet of the rider is older than this many seconds: the rider is not riding. */
+const JOKE_MAX_STATE_AGE_S = 10;
+
 const ahead = (state: PlayerState, time: number) =>
   Math.abs(state.roadTime - time) < 500_000 && (forward(state) ? state.roadTime > time : state.roadTime < time);
 
@@ -51,6 +56,10 @@ export class Simulation {
   readonly blobs = new Map<bigint, Blob>();
 
   readonly directors = new Map<bigint, GestureDirector>();
+
+  readonly jokeTellers = new Map<bigint, JokeTeller>();
+
+  readonly jokes: Jokes;
 
   readonly ghosts = new Map<bigint, RiderGhosts>();
 
@@ -103,8 +112,9 @@ export class Simulation {
     this.starts = z
       .record(z.string(), z.object({ road: z.number(), time: z.number() }))
       .parse(JSON.parse(readFileSync(resolve(runtime.assets, 'data/start_lines.txt'), 'utf8')));
-    // Static road assets load at startup; blobs are rebuilt on the riding path.
+    // Static road assets and jokes load at startup; blobs are rebuilt on the riding path.
     Blob.roads(runtime.assets);
+    this.jokes = loadJokes(runtime.assets);
     runtime.world.simulation = this;
     this.ready = this.reload();
   }
@@ -305,6 +315,7 @@ export class Simulation {
 
     this.blobs.delete(id);
     this.directors.delete(id);
+    this.jokeTellers.delete(id);
     const saved = this.runtime.settings.world(`blob:${id}`);
 
     const config = configSchema.parse({
@@ -325,10 +336,46 @@ export class Simulation {
     this.blobs.set(id, blob);
     this.directors.set(id, new GestureDirector(blob.rng, this.now(), config.gestureInterval));
 
+    if (config.jokes) this.jokeTellers.set(id, new JokeTeller(blob.rng, this.jokes, config.jokeInterval, this.now()));
+
     for (const rider of blob.riders) this.runtime.profiles.synthetic.set(rider.profile.id, rider.profile);
     const state = this.runtime.world.online.get(id);
 
     if (state) blob.receive(state, 0);
+  }
+
+  /** The bot furthest ahead tells the rider a joke in the chat, under its own name, while the rider is riding. */
+  private tellJoke(id: bigint, blob: Blob, now: number, time: bigint) {
+    const teller = this.jokeTellers.get(id);
+
+    if (!teller) return;
+    const state = this.runtime.world.online.get(id);
+
+    if (!state || Number(time - state.worldTime) / 1000 > JOKE_MAX_STATE_AGE_S) {
+      // Nobody is riding: no joke should be waiting when riding starts again.
+      teller.reset(now);
+
+      return;
+    }
+
+    if (!teller.due(now)) return;
+
+    let leader: (typeof blob.riders)[number] | undefined;
+
+    for (const rider of blob.riders) if (rider.gap < 0 && (!leader || rider.gap < leader.gap)) leader = rider;
+
+    if (!leader) return;
+
+    const language = resolveLanguage(
+      blob.config.jokeLanguage,
+      this.runtime.profiles.get(Number(id)).countryCode,
+      this.jokes,
+    );
+
+    const text = teller.poll(now, language);
+
+    if (text !== null)
+      this.runtime.world.enqueue(chatUpdate(text, leader.profile.firstName, leader.profile.lastName, time), [id]);
   }
 
   receive(id: bigint, state: PlayerState) {
@@ -786,6 +833,8 @@ export class Simulation {
         : null;
 
       if (gesture) world.enqueue(gestureUpdate(gesture.action, gesture.state, time), [id]);
+
+      this.tellJoke(id, blob, now, time);
 
       if (!(blob.config.record && states.length > 0)) continue;
 

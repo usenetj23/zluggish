@@ -277,6 +277,14 @@ export default defineConfig({
     // Smallest gap between two bots, side to side. 0 turns it off.
     keepApart: 0.85,
 
+    // Joke rider.
+    // The bot furthest ahead tells you a joke in the chat now and then, under its own name.
+    jokes: false,
+    // 'auto' follows the flag of your profile (Poland: pl) and falls back to en; or name a language from data/jokes.txt.
+    jokeLanguage: 'auto',
+    // Average seconds between two jokes (each wait is 0.5 to 1.5 times this). 0 turns it off.
+    jokeInterval: 300,
+
     // Movement.
     // Average seconds between position changes inside the group.
     shuffleInterval: 25,

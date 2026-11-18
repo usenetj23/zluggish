@@ -401,6 +401,12 @@ export const configSchema = z
         scatterBeside: z.number().default(1),
         keepApartLong: z.number().default(1.75),
         keepApart: z.number().default(0.85),
+        jokes: z.boolean().default(false),
+        jokeLanguage: z
+          .string()
+          .refine((v) => !v.includes('\0'), 'Invalid string')
+          .default('auto'),
+        jokeInterval: z.number().min(0).default(300),
         playerId: z.number().int().safe().min(1).default(1),
         record: z.boolean().default(false),
       })

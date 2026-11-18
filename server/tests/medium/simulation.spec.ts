@@ -1,10 +1,11 @@
 import { PlayerProfileSchema } from '#src/protocol/generated/profile_pb';
-import { GhostSchema, PlayerStateSchema } from '#src/protocol/generated/udp-node-msgs_pb';
+import { SocialPlayerActionSchema, SocialPlayerActionType } from '#src/protocol/generated/tcp-node-msgs_pb';
+import { GhostSchema, PlayerStateSchema, WA_TYPE } from '#src/protocol/generated/udp-node-msgs_pb';
 import { AssetFiles } from '#src/repositories/files.repository';
 import { worldTime } from '#src/world/state';
 import { Simulation } from '#src/world/simulation';
 import { runtimeFixture } from '#tests/support/runtime';
-import { create, toBinary } from '@bufbuild/protobuf';
+import { create, fromBinary, toBinary } from '@bufbuild/protobuf';
 import assert from 'node:assert/strict';
 import fs, { rmSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
@@ -180,4 +181,62 @@ await test('riding, ghost and bookmark loads, blobs, recovery and logout make no
   assert.deepEqual(calls, []);
   assert.equal(simulation.ghosts.has(id), false);
   assert.equal(simulation.bookmarks.get(id)?.size, 2, 'the command bookmark and the last ride bookmark');
+});
+
+await test('the blob rider furthest ahead tells a joke in the chat, but only while the rider is riding', async (t) => {
+  const f = runtimeFixture(t);
+  const rider = await f.accounts.create('Joke Rider', 'test-password');
+  const id = BigInt(rider.player_id);
+  let now = 100;
+  const simulation = new Simulation(f, () => now);
+  t.after(() => simulation.close());
+  await simulation.ready;
+  f.settings.saveWorld(`blob:${id}`, { enabled: true, riders: 8, jokes: true, jokeInterval: 10 });
+  simulation.loadBlob(id);
+  f.world.login(id, new Uint8Array(16));
+  const sent = t.mock.method(f.world, 'enqueue');
+
+  const jokes = () =>
+    sent.mock.calls
+      .map((call) => call.arguments[0])
+      .filter((update) => update.waType === WA_TYPE.WAT_SPA)
+      .map((update) => fromBinary(SocialPlayerActionSchema, update.payload));
+
+  const ride = (age: bigint) => {
+    for (let index = 0; index < 60; index++) {
+      now++;
+      f.world.receive(
+        id,
+        create(PlayerStateSchema, {
+          id,
+          f19: (6 << 16) | 4,
+          aux3: 1 << 8,
+          roadTime: 1_000_000 + now * 10,
+          worldTime: worldTime() - age,
+        }),
+      );
+      simulation.tick();
+    }
+  };
+
+  // The last packet is 30 s old: nobody is riding, so nothing is said however long it lasts.
+  ride(30_000n);
+  assert.deepEqual(jokes(), []);
+
+  ride(0n);
+  const told = jokes();
+  const names = new Set(simulation.blobs.get(id)?.riders.map((blobRider) => blobRider.profile.firstName));
+  assert.ok(told.length > 0, 'a joke was told while riding');
+  assert.ok(told.length <= 8, 'jokes are spaced by the interval');
+
+  for (const chat of told) {
+    assert.equal(chat.spaType, SocialPlayerActionType.SOCIAL_TEXT_MESSAGE);
+    assert.ok(simulation.jokes.get('en')?.includes(chat.message), 'the text is one of the jokes');
+    assert.ok(names.has(chat.firstName), 'it is said under the name of a blob rider');
+  }
+
+  assert.ok(
+    sent.mock.calls.every((call) => call.arguments[1] === undefined || call.arguments[1]?.every((to) => to === id)),
+    'only the rider that the blob rides with hears it',
+  );
 });
