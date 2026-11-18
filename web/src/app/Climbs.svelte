@@ -1,7 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
 
-  type Climb = { road: string; name: string; rides: number; bestMs: number | null; lastRide: string | null };
+  type Climb = {
+    road: string;
+    name: string;
+    rides: number;
+    bestMs: number | null;
+    lastRide: string | null;
+    /** The two Strava segments of the climb, as ridden from Watopia and from France. */
+    strava: { watopia: number; france: number } | null;
+  };
+
+  const segment = (id: number) => `https://www.strava.com/segments/${id}`;
 
   let {
     api,
@@ -59,6 +69,7 @@
           <th scope="col">Rides</th>
           <th scope="col">Best time</th>
           <th scope="col">Last ride</th>
+          <th scope="col">Strava</th>
         </tr>
       </thead>
       <tbody>
@@ -68,6 +79,14 @@
             <td>{climb.rides}</td>
             <td>{clock(climb.bestMs)}</td>
             <td>{day(climb.lastRide)}</td>
+            <td class="segments">
+              {#if climb.strava}
+                <a href={segment(climb.strava.watopia)} target="_blank" rel="noopener noreferrer">Watopia</a>
+                <a href={segment(climb.strava.france)} target="_blank" rel="noopener noreferrer">France</a>
+              {:else}
+                –
+              {/if}
+            </td>
           </tr>
         {/each}
       </tbody>
@@ -113,5 +132,11 @@
   }
   .climbs tbody td:nth-child(3) {
     font-weight: 800;
+  }
+  .climbs .segments {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    font-weight: 600;
   }
 </style>

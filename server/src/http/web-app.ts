@@ -9,7 +9,7 @@ import { z } from 'zod';
 import { ApplicationError, UnreadableCredentialsError } from '#src/errors';
 import { credentials, password, newUser } from '#src/dtos/management.dto';
 import type { HttpRuntime } from '#src/http/runtime';
-import { readClimbs } from '#src/http/climbs';
+import { readClimbSegments, readClimbs } from '#src/http/climbs';
 import { peerAddress } from '#src/http/routes/accounts';
 import { WORLD_TIME_EPOCH_MS } from '#src/world/state';
 import { resolve } from 'node:path';
@@ -234,6 +234,7 @@ export function createWebApp(runtime: HttpRuntime) {
     );
 
     const climbs = [];
+    const segments = readClimbSegments(runtime);
 
     for (const climb of readClimbs(runtime)) {
       const row = stats.get(climb.road);
@@ -244,6 +245,7 @@ export function createWebApp(runtime: HttpRuntime) {
           name: climb.name,
           rides: row.rides,
           bestMs: row.best_ms,
+          strava: segments[climb.road] ?? null,
           lastRide:
             row.last_world_time === null ? null : new Date(row.last_world_time + WORLD_TIME_EPOCH_MS).toISOString(),
         });

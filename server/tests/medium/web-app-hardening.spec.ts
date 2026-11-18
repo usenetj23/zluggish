@@ -396,7 +396,29 @@ await test('web app lists the climb portals a rider has ridden with the best tim
       name: 'Alto de Patios (5.9 km / 376 m)',
       rides: 3,
       bestMs: 540_000,
+      strava: { watopia: 41_290_767, france: 41_290_943 },
       lastRide: '2026-11-18T15:34:35.000Z',
     },
   ]);
+});
+
+await test('every climb portal of the launcher has its two Strava segments, with no id used twice', () => {
+  const climbs = z
+    .array(z.object({ name: z.string(), road: z.string() }))
+    .parse(JSON.parse(readFileSync(resolve(packageRoot(), '../assets/data/climbs.txt'), 'utf8')));
+
+  const segments = z
+    .record(z.string(), z.object({ watopia: z.number(), france: z.number() }))
+    .parse(JSON.parse(readFileSync(resolve(packageRoot(), '../assets/data/climb_segments.txt'), 'utf8')));
+
+  const roads = new Set(climbs.map((climb) => climb.road));
+  const ids = Object.values(segments).flatMap((segment) => [segment.watopia, segment.france]);
+
+  assert.equal(Object.keys(segments).length, 52);
+  assert.ok(
+    Object.keys(segments).every((road) => roads.has(road)),
+    'every mapped road is a climb of the launcher',
+  );
+  assert.equal(new Set(ids).size, ids.length, 'no segment belongs to two climbs');
+  assert.equal(segments['10052']?.watopia, 41_290_767);
 });
