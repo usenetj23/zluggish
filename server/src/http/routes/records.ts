@@ -63,7 +63,21 @@ export function recordRoutes(app: Hono<RuntimeEnv>, runtime: Runtime) {
     result.playerId = BigInt(user.player_id);
     result.worldTime = worldTime();
     result.finishTimeStr = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z');
+
+    // The rider's earlier times on this segment, for the joke rider to compare with.
+    const previousMs = service
+      .mine(user.player_id, undefined, String(result.segmentId))
+      .map((earlier) => Number(earlier.elapsedMs))
+      .filter((elapsed) => elapsed > 0);
+
     result.id = BigInt(records.insert('segment_result', SegmentResultSchema, result));
+    runtime.world.simulation?.segmentFinished(
+      result.playerId,
+      result.segmentId,
+      Number(result.elapsedMs),
+      result.avgPower,
+      previousMs,
+    );
     const sender = runtime.world.online.get(result.playerId);
 
     if (sender)

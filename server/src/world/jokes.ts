@@ -39,10 +39,10 @@ export function loadJokes(assets: string): Jokes {
 /** The language to tell jokes in: `auto` follows the flag of the rider, anything else names a language.
 Falls back to English when there are no jokes in the wanted language.
 */
-export function resolveLanguage(setting: string, countryCode: number, jokes: Jokes) {
+export function resolveLanguage(setting: string, countryCode: number, available: ReadonlyMap<string, unknown>) {
   const wanted = setting === 'auto' ? (COUNTRY_LANGUAGE.get(countryCode) ?? DEFAULT_LANGUAGE) : setting.toLowerCase();
 
-  return jokes.get(wanted)?.length ? wanted : DEFAULT_LANGUAGE;
+  return available.has(wanted) ? wanted : DEFAULT_LANGUAGE;
 }
 
 /** Decides when the next joke is due and which one: nothing repeats until a language's list has been told. */

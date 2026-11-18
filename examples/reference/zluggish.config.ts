@@ -284,6 +284,15 @@ export default defineConfig({
     jokeLanguage: 'auto',
     // Average seconds between two jokes (each wait is 0.5 to 1.5 times this). 0 turns it off.
     jokeInterval: 300,
+    // With jokes on, the same bot also remarks on your ride: the route, every 15 minutes and 10 km, climbs and
+    // descents, how hard you ride against your FTP, bursts, and the sprints and KOMs you finish.
+    jokeCommentary: true,
+    // Least seconds between two of those remarks.
+    commentaryGap: 120,
+    // Your FTP in watts for the effort remarks. 0 takes it from your Zwift profile.
+    ftp: 0,
+    // Chance that a bot that gives a hand signal also says a line in the chat, 0 to 1.
+    gestureTalk: 0.5,
 
     // Movement.
     // Average seconds between position changes inside the group.

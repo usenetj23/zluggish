@@ -9,8 +9,12 @@ import { SettingsService } from '#src/services/settings.service';
 import { Blob } from '#src/world/blob';
 import { Random, clamp } from '#src/world/geometry';
 import { GestureDirector, gestureUpdate } from '#src/world/gestures';
+import type { Templates } from '#src/world/commentary';
+import { Commentator, loadTemplates } from '#src/world/commentary';
 import type { Jokes } from '#src/world/jokes';
 import { JokeTeller, chatUpdate, loadJokes, resolveLanguage } from '#src/world/jokes';
+import type { Segment } from '#src/world/segments';
+import { loadSegments } from '#src/world/segments';
 import type { ReplayRider } from '#src/world/peloton';
 import { Peloton } from '#src/world/peloton';
 import { RiderPool, ghostAppearanceSchema } from '#src/world/riders';
@@ -45,6 +49,18 @@ interface RiderGhosts {
 /** No joke when the last packet of the rider is older than this many seconds: the rider is not riding. */
 const JOKE_MAX_STATE_AGE_S = 10;
 
+/** The kind of line a bot says with each hand signal, as named in data/commentary.txt (gesture_<name>). */
+const GESTURE_NAMES = new Map([
+  [UserBikeAction.UBA_ELBOW, 'elbow'],
+  [UserBikeAction.UBA_WAVE, 'wave'],
+  [UserBikeAction.UBA_RIDEON, 'rideon'],
+  [UserBikeAction.UBA_HAMMER, 'hammer'],
+  [UserBikeAction.UBA_NICE, 'nice'],
+  [UserBikeAction.UBA_BRING_IT, 'bringit'],
+  [UserBikeAction.UBA_TOAST, 'toast'],
+  [UserBikeAction.UBA_BELL, 'bell'],
+]);
+
 const ahead = (state: PlayerState, time: number) =>
   Math.abs(state.roadTime - time) < 500_000 && (forward(state) ? state.roadTime > time : state.roadTime < time);
 
@@ -59,7 +75,17 @@ export class Simulation {
 
   readonly jokeTellers = new Map<bigint, JokeTeller>();
 
+  readonly commentators = new Map<bigint, Commentator>();
+
   readonly jokes: Jokes;
+
+  readonly commentary: Templates;
+
+  readonly segments: ReadonlyMap<string, Segment>;
+
+  private readonly packetsFed = new Map<bigint, number>();
+
+  private readonly ftps = new Map<bigint, { at: number; ftp: number }>();
 
   readonly ghosts = new Map<bigint, RiderGhosts>();
 
@@ -71,7 +97,7 @@ export class Simulation {
 
   readonly ghostAppearance: z.infer<typeof ghostAppearanceSchema>;
 
-  readonly starts: Record<string, { road: number; time: number }>;
+  readonly starts: Record<string, { road: number; time: number; name?: string | undefined }>;
 
   readonly rng = new Random();
 
@@ -110,11 +136,13 @@ export class Simulation {
     );
     this.pool = new RiderPool(runtime.assets, runtime.config.bots.ridersFile);
     this.starts = z
-      .record(z.string(), z.object({ road: z.number(), time: z.number() }))
+      .record(z.string(), z.object({ road: z.number(), time: z.number(), name: z.string().optional() }))
       .parse(JSON.parse(readFileSync(resolve(runtime.assets, 'data/start_lines.txt'), 'utf8')));
     // Static road assets and jokes load at startup; blobs are rebuilt on the riding path.
     Blob.roads(runtime.assets);
     this.jokes = loadJokes(runtime.assets);
+    this.commentary = loadTemplates(runtime.assets);
+    this.segments = loadSegments(runtime.assets);
     runtime.world.simulation = this;
     this.ready = this.reload();
   }
@@ -315,7 +343,7 @@ export class Simulation {
 
     this.blobs.delete(id);
     this.directors.delete(id);
-    this.jokeTellers.delete(id);
+    this.stopTalking(id);
     const saved = this.runtime.settings.world(`blob:${id}`);
 
     const config = configSchema.parse({
@@ -336,7 +364,7 @@ export class Simulation {
     this.blobs.set(id, blob);
     this.directors.set(id, new GestureDirector(blob.rng, this.now(), config.gestureInterval));
 
-    if (config.jokes) this.jokeTellers.set(id, new JokeTeller(blob.rng, this.jokes, config.jokeInterval, this.now()));
+    if (config.jokes) this.startTalking(id, blob);
 
     for (const rider of blob.riders) this.runtime.profiles.synthetic.set(rider.profile.id, rider.profile);
     const state = this.runtime.world.online.get(id);
@@ -352,10 +380,73 @@ export class Simulation {
     saved.jokes = on;
     this.runtime.settings.saveWorld(`blob:${id}`, saved);
 
-    if (on) this.jokeTellers.set(id, new JokeTeller(blob.rng, this.jokes, blob.config.jokeInterval, this.now()));
-    else this.jokeTellers.delete(id);
+    if (on) this.startTalking(id, blob);
+    else this.stopTalking(id);
 
     return on ? 'Jokes on.' : 'Jokes off.';
+  }
+
+  /** The joke rider and, unless switched off, the remarks about the ride. */
+  private startTalking(id: bigint, blob: Blob) {
+    this.jokeTellers.set(id, new JokeTeller(blob.rng, this.jokes, blob.config.jokeInterval, this.now()));
+
+    if (blob.config.jokeCommentary)
+      this.commentators.set(id, new Commentator(blob.rng, this.commentary, blob.config.commentaryGap));
+  }
+
+  private stopTalking(id: bigint) {
+    this.jokeTellers.delete(id);
+    this.commentators.delete(id);
+    this.packetsFed.delete(id);
+  }
+
+  /** The language of the messages: the setting, else the flag of the rider; English when there is nothing else. */
+  private language(id: bigint, blob: Blob, available: ReadonlyMap<string, unknown>) {
+    return resolveLanguage(blob.config.jokeLanguage, this.runtime.profiles.get(Number(id)).countryCode, available);
+  }
+
+  /** Your FTP: the `ftp` setting when set, else from your Zwift profile, looked up at most once a minute. */
+  private ftpOf(id: bigint, blob: Blob, now: number) {
+    if (blob.config.ftp > 0) return blob.config.ftp;
+    const cached = this.ftps.get(id);
+
+    if (cached && now - cached.at < 60) return cached.ftp;
+    const ftp = Math.max(this.runtime.profiles.get(Number(id)).ftp, 0);
+    this.ftps.set(id, { at: now, ftp });
+
+    return ftp;
+  }
+
+  /** A finished sprint, KOM or segment, told by the bot furthest ahead soon after, with your earlier times. */
+  segmentFinished(id: bigint, segmentId: bigint, elapsedMs: number, avgPower: number, previousMs: readonly number[]) {
+    const commentator = this.commentators.get(id);
+    const segment = this.segments.get(String(segmentId));
+
+    if (!commentator || !segment) return;
+    commentator.queueSegment(this.now(), { name: segment.name, kind: segment.kind, elapsedMs, avgPower, previousMs });
+  }
+
+  /** A bot that gives a hand signal may also say a line in the chat, under its own name. */
+  quipGesture(id: bigint, blob: Blob, riderId: bigint, action: UserBikeAction, now: number, time: bigint) {
+    const name = GESTURE_NAMES.get(action);
+    const commentator = this.commentators.get(id);
+    const teller = this.jokeTellers.get(id);
+    const last = blob.trail.entries.at(-1);
+    const rider = blob.riders.find((candidate) => candidate.profile.id === riderId);
+
+    if (!name || !commentator || !teller || !rider || !last || now - last.time > JOKE_MAX_STATE_AGE_S) return;
+
+    const text = commentator.gestureQuip(
+      now,
+      name,
+      () => this.language(id, blob, this.commentary),
+      blob.config.gestureTalk,
+    );
+
+    if (text === null) return;
+    teller.reset(now);
+    commentator.noteMessage(now);
+    this.runtime.world.enqueue(chatUpdate(text, rider.profile.firstName, rider.profile.lastName, time), [id]);
   }
 
   /** The bot furthest ahead tells the rider a joke in the chat, under its own name, while the rider is riding. */
@@ -363,17 +454,31 @@ export class Simulation {
     const teller = this.jokeTellers.get(id);
 
     if (!teller) return;
+    const commentator = this.commentators.get(id);
     // The time a packet arrived, on this server's clock: the clock inside a packet is the game's own.
     const last = blob.trail.entries.at(-1);
 
     if (!last || now - last.time > JOKE_MAX_STATE_AGE_S) {
       // Nobody is riding: no joke should be waiting when riding starts again.
       teller.reset(now);
+      commentator?.idle();
 
       return;
     }
 
-    if (!teller.due(now)) return;
+    if (commentator && this.packetsFed.get(id) !== last.time) {
+      this.packetsFed.set(id, last.time);
+
+      commentator.update(last.time, {
+        timeS: last.state.time,
+        distanceM: last.state.distance,
+        power: last.state.power,
+        heartrate: last.state.heartrate,
+        gradePct: blob.grade * 100,
+        climbedM: last.state.climbing,
+        ftp: this.ftpOf(id, blob, now),
+      });
+    }
 
     let leader: (typeof blob.riders)[number] | undefined;
 
@@ -381,16 +486,21 @@ export class Simulation {
 
     if (!leader) return;
 
-    const language = resolveLanguage(
-      blob.config.jokeLanguage,
-      this.runtime.profiles.get(Number(id)).countryCode,
-      this.jokes,
-    );
+    // A remark about your ride goes first; a joke only when there is none to make and one is due.
+    let text =
+      commentator?.poll(
+        now,
+        () => this.language(id, blob, this.commentary),
+        () => this.starts[String(last.state.route)]?.name ?? 'Zwift',
+      ) ?? null;
 
-    const text = teller.poll(now, language);
+    if (text === null && teller.due(now)) text = teller.poll(now, this.language(id, blob, this.jokes));
 
-    if (text !== null)
-      this.runtime.world.enqueue(chatUpdate(text, leader.profile.firstName, leader.profile.lastName, time), [id]);
+    if (text === null) return;
+    // Whatever was said, the next joke and the next remark are a full wait away.
+    teller.reset(now);
+    commentator?.noteMessage(now);
+    this.runtime.world.enqueue(chatUpdate(text, leader.profile.firstName, leader.profile.lastName, time), [id]);
   }
 
   receive(id: bigint, state: PlayerState) {
@@ -849,7 +959,10 @@ export class Simulation {
             ?.step(now, blob.riders, blob.config.gestureInterval, blob.trail.motion().speed, blob.config.gestureChance)
         : null;
 
-      if (gesture) world.enqueue(gestureUpdate(gesture.action, gesture.state, time), [id]);
+      if (gesture) {
+        world.enqueue(gestureUpdate(gesture.action, gesture.state, time), [id]);
+        this.quipGesture(id, blob, gesture.state.id, gesture.action, now, time);
+      }
 
       this.tellJoke(id, blob, now, time);
 

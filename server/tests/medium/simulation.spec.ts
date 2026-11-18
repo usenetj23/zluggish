@@ -1,16 +1,18 @@
 import { PlayerProfileSchema } from '#src/protocol/generated/profile_pb';
 import { SocialPlayerActionSchema, SocialPlayerActionType } from '#src/protocol/generated/tcp-node-msgs_pb';
-import { GhostSchema, PlayerStateSchema, WA_TYPE } from '#src/protocol/generated/udp-node-msgs_pb';
+import { SegmentResultSchema } from '#src/protocol/generated/segment-result_pb';
+import { GhostSchema, PlayerStateSchema, UserBikeAction, WA_TYPE } from '#src/protocol/generated/udp-node-msgs_pb';
 import { AssetFiles } from '#src/repositories/files.repository';
 import { worldTime } from '#src/world/state';
 import { Simulation } from '#src/world/simulation';
+import { binary, mediumFixture } from '#tests/medium/support';
 import { runtimeFixture } from '#tests/support/runtime';
 import { create, fromBinary, toBinary } from '@bufbuild/protobuf';
 import assert from 'node:assert/strict';
 import fs, { rmSync } from 'node:fs';
 import { syncBuiltinESMExports } from 'node:module';
 import { resolve } from 'node:path';
-import { test } from 'node:test';
+import { test, type TestContext } from 'node:test';
 
 await test('simulation playback stops, resumes and removes deleted pacers on reload', async (t) => {
   t.mock.timers.enable({ apis: ['Date', 'setInterval'], now: Date.UTC(2026, 10, 12) });
@@ -275,5 +277,142 @@ await test('.blob jokes switches the joke rider on and off, remembers it and kee
 
   assert.equal(simulation.command(id, 'blob jokes'), 'Jokes off.');
   assert.equal(simulation.jokeTellers.has(id), false);
+  assert.equal(simulation.commentators.has(id), false);
   assert.equal(f.settings.world(`blob:${id}`).jokes, false);
+});
+
+/** A rider with a blob that talks (a joke is never due, so only remarks, segments and signals speak). */
+const talkingRider = async (t: TestContext, settings: { gestureTalk?: number } = {}) => {
+  const f = runtimeFixture(t);
+  const rider = await f.accounts.create('Talk Rider', 'test-password');
+  const id = BigInt(rider.player_id);
+  let now = 100;
+  const simulation = new Simulation(f, () => now);
+  t.after(() => simulation.close());
+  await simulation.ready;
+  f.settings.saveWorld(`blob:${id}`, { enabled: true, riders: 8, jokes: true, jokeInterval: 1_000_000, ...settings });
+  simulation.loadBlob(id);
+  f.world.login(id, new Uint8Array(16));
+  const sent = t.mock.method(f.world, 'enqueue');
+  const route = Object.entries(simulation.starts).find(([, start]) => start.name);
+
+  const said = () =>
+    sent.mock.calls
+      .map((call) => call.arguments[0])
+      .filter((update) => update.waType === WA_TYPE.WAT_SPA)
+      .map((update) => fromBinary(SocialPlayerActionSchema, update.payload));
+
+  const ride = (seconds: number, over: (second: number) => Record<string, number> = () => ({})) => {
+    for (let index = 0; index < seconds; index++) {
+      now++;
+      f.world.receive(
+        id,
+        create(PlayerStateSchema, {
+          id,
+          f19: (6 << 16) | 4,
+          aux3: 1 << 8,
+          roadTime: 1_000_000 + now * 10,
+          worldTime: worldTime(),
+          route: Number(route?.[0]),
+          time: now - 100,
+          ...over(now - 100),
+        }),
+      );
+      simulation.tick();
+    }
+  };
+
+  return { f, id, simulation, route, said, ride, now: () => now };
+};
+
+await test('the bot furthest ahead tells the route once the ride is a minute and a half old', async (t) => {
+  const { simulation, route, said, ride } = await talkingRider(t);
+
+  ride(60);
+  assert.deepEqual(said(), [], 'nothing in the first minute');
+
+  ride(60);
+  const told = said();
+  assert.ok(route?.[1].name, 'the start lines have route names');
+  assert.equal(told.length, 1, 'the route is told once');
+  assert.ok(told[0]?.message.includes(route?.[1].name ?? ''), `the route name is in: ${told[0]?.message}`);
+  assert.ok(simulation.commentators.size > 0);
+});
+
+await test('a finished segment is told by the bot soon after, with your earlier times', async (t) => {
+  const { id, simulation, said, ride } = await talkingRider(t);
+  const [segmentId, segment] = [...simulation.segments].find(([, candidate]) => candidate.kind === 'sprint') ?? [];
+  assert.ok(segmentId && segment, 'the catalog has a sprint');
+
+  ride(30);
+  simulation.segmentFinished(id, BigInt(segmentId), 18_467, 700, [20_000]);
+  ride(3);
+  const told = said();
+  assert.equal(told.length, 1);
+  assert.ok(told[0]?.message.includes(segment.name), `the segment name is in: ${told[0]?.message}`);
+
+  simulation.segmentFinished(id, 12_345n, 1000, 100, []);
+  ride(30);
+  assert.equal(said().length, 1, 'a segment that is not in the catalog is not told');
+});
+
+await test('a bot that gives a hand signal says a line with it, under its own name, within the chance', async (t) => {
+  const { f, id, simulation, said, ride, now } = await talkingRider(t, { gestureTalk: 1 });
+  ride(10);
+  const blob = simulation.blobs.get(id);
+  const bot = blob?.riders[0];
+  assert.ok(blob && bot);
+
+  simulation.quipGesture(id, blob, bot.profile.id, UserBikeAction.UBA_ELBOW, now(), worldTime());
+  const told = said();
+  const lines = simulation.commentary.get('en')?.texts.get('gesture_elbow') ?? [];
+  assert.equal(told.length, 1);
+  assert.ok(lines.includes(told[0]?.message ?? ''), 'the line is one of the elbow lines');
+  assert.equal(told[0]?.firstName, bot.profile.firstName);
+  assert.ok(f.world.online.has(id));
+
+  f.settings.saveWorld(`blob:${id}`, {
+    enabled: true,
+    riders: 8,
+    jokes: true,
+    jokeInterval: 1_000_000,
+    gestureTalk: 0,
+  });
+  simulation.loadBlob(id);
+  const quiet = simulation.blobs.get(id);
+  ride(10);
+  simulation.quipGesture(id, quiet ?? blob, bot.profile.id, UserBikeAction.UBA_ELBOW, now(), worldTime());
+  assert.equal(said().length, 1, 'gestureTalk 0 means silence');
+});
+
+await test('a segment result posted by the game reaches the joke rider with the earlier times', async (t) => {
+  const f = await mediumFixture(t);
+  const simulation = new Simulation(f, () => 100);
+  t.after(() => simulation.close());
+  await simulation.ready;
+  const finished = t.mock.method(simulation, 'segmentFinished');
+
+  for (const elapsedMs of [20_000n, 18_000n]) {
+    const response = await f.request('/api/segment-results', {
+      method: 'POST',
+      ...binary(SegmentResultSchema, {
+        playerId: BigInt(f.rider.player_id),
+        segmentId: 42n,
+        firstName: 'M',
+        lastName: 'Rider',
+        elapsedMs,
+        avgPower: 400,
+      }),
+    });
+
+    assert.equal(response.status, 200);
+  }
+
+  assert.deepEqual(
+    finished.mock.calls.map((call) => call.arguments.slice(1)),
+    [
+      [42n, 20_000, 400, []],
+      [42n, 18_000, 400, [20_000]],
+    ],
+  );
 });
