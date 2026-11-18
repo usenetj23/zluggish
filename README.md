@@ -502,6 +502,7 @@ export default defineConfig({
   - Hammertime (F4) - full gas, segment on
   - I'm toast (F7) - easing off
   - Bell (F8) - I want a turn in front
+- Joke rider (off by default): set `soloBlob.jokes` to `true`, or tick `jokes` in the world settings of the web app. While you ride, the bot furthest ahead tells you a joke in the chat now and then, under its own name. `jokeInterval` is the average number of seconds between two jokes (default 300) and `jokeLanguage` is `auto`, which follows the flag of your profile and falls back to English, or a language from `assets/data/jokes.txt` (English and Polish are included; add your own lines or a new language there). Jokes do not repeat until the whole list of a language has been told.
 
 </details>
 
