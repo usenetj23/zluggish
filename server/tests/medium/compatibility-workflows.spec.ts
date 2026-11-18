@@ -331,3 +331,28 @@ await test('automatic sync deadline aborts provider work and never publishes a l
   assert.equal(aborted, true);
   assert.deepEqual(readFileSync(workouts.metadataFile(user.player_id)), before);
 });
+
+await test('home marks the climb portals this rider has already ridden', async (t) => {
+  const f = runtimeFixture(t);
+  const rider = await f.accounts.create('Climber One', 'test-password');
+  const other = await f.accounts.create('Climber Two', 'test-password');
+  const insert = f.accounts.db.prepare('INSERT INTO route_result(player_id,route_hash) VALUES (?,?)');
+  // 10052 is Alto de Patios. A hash outside the climb range and another rider's result must not mark anything.
+  insert.run(rider.player_id, 10_052);
+  insert.run(rider.player_id, 10_052);
+  insert.run(rider.player_id, 3_114_603_308);
+  insert.run(other.player_id, 10_011);
+
+  const home = await f.app.request(`/user/${rider.username}/`, {
+    headers: { Authorization: `Bearer ${f.sessions.tokens(rider, f.tokens).access_token}` },
+  });
+
+  assert.equal(home.status, 200);
+  const html = await home.text();
+
+  assert.match(html, />✓ Alto de Patios/);
+  assert.match(html, />Bealach na Ba/);
+  const marked = new Set(html.matchAll(/✓ ([^<"]+)/g).map((match) => match[1]));
+
+  assert.deepEqual([...marked], ['Alto de Patios (5.9 km / 376 m)']);
+});

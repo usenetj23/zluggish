@@ -41,6 +41,21 @@ export class RecordsRepository {
     );
   }
 
+  /** Climb portal roads (route hashes 10,000 to 11,000) this rider has already ridden. */
+  riddenClimbRoads(player: number) {
+    return this.executor
+      .all(
+        query
+          .selectFrom('route_result')
+          .select('route_hash')
+          .distinct()
+          .where('player_id', '=', player)
+          .where('route_hash', '>=', 10_000)
+          .where('route_hash', '<=', 11_000),
+      )
+      .map((row) => String(row.route_hash));
+  }
+
   ensureRoute(player: number, hash: number) {
     const existing = this.executor.get(
       query.selectFrom('route_result').select('id').where('player_id', '=', player).where('route_hash', '=', hash),

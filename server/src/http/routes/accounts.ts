@@ -2,7 +2,7 @@ import { calendarLabels, mapChoices } from '#src/http/game/calendar';
 import { checkbox, field, form as makeForm, hidden, model } from '#src/http/game/models';
 import { gamePage } from '#src/http/game/render';
 import { browserJson, gameRedirect } from '#src/http/game/results';
-import { climbSchema } from '#src/dtos/accounts.dto';
+import { readClimbs } from '#src/http/climbs';
 import type { HttpRuntime as Runtime, RuntimeEnv } from '#src/http/runtime';
 import type { User } from '#src/repositories/accounts.repository';
 import { REMEMBER_SECONDS } from '#src/services/browser-session.service';
@@ -318,9 +318,9 @@ export function accountRoutes(app: Hono<RuntimeEnv>, runtime: Runtime) {
     const user = authenticated(c);
     await runtime.services.workouts.syncWorkoutsAutomatically(user.player_id);
 
-    const climbs = z
-      .array(climbSchema)
-      .parse(JSON.parse(runtime.services.files.read(resolve(runtime.assets, 'data/climbs.txt'), 'utf8')));
+    const climbs = readClimbs(runtime);
+
+    const ridden = new Set(runtime.services.records.riddenClimbRoads(user.player_id));
 
     const calendar = calendarLabels(
       runtime.services.files.read(resolve(runtime.assets, 'cdn/gameassets/MapSchedule_v2.xml'), 'utf8'),
@@ -349,7 +349,10 @@ export function accountRoutes(app: Hono<RuntimeEnv>, runtime: Runtime) {
               value: 'CALENDAR',
               options: [
                 { value: 'CALENDAR', label: calendar.climb },
-                ...climbs.map((climb) => ({ value: climb.road, label: climb.name })),
+                ...climbs.map((climb) => ({
+                  value: climb.road,
+                  label: ridden.has(climb.road) ? `✓ ${climb.name}` : climb.name,
+                })),
               ],
             }),
           ],
