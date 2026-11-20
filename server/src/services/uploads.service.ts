@@ -85,7 +85,9 @@ const make = Effect.gen(function* () {
 
   /** Remember the id of the activity a provider created; a failure is only reported because the upload already happened. */
   function rememberRemote(attempt: Attempt | undefined, id: string | null) {
-    if (!attempt || !id) return;
+    if (!attempt || !id) {
+      return;
+    }
 
     try {
       repositories.uploadsRepository.setRemote(attempt.activity, attempt.provider, attempt.token, id);
@@ -530,7 +532,7 @@ const make = Effect.gen(function* () {
       'intervals',
     );
 
-    const body = await response.json().catch(() => null);
+    const body: unknown = await response.json().catch(() => null);
     const id = Option.match(decodeIntervalsImport(body), { onNone: () => null, onSome: intervalsActivityId });
 
     rememberRemote(attempt, id);

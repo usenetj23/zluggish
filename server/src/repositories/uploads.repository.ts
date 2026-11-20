@@ -146,8 +146,13 @@ export class UploadsRepository {
   }
 
   /** Remote ids of sent deliveries for the given activities belonging to the player. */
-  remoteIds(activities: number[], player: number): Array<{ activity_id: number; provider: string; remote_id: string }> {
-    if (activities.length === 0) return [];
+  remoteIds(
+    activities: Array<number>,
+    player: number,
+  ): Array<{ activity_id: number; provider: string; remote_id: string }> {
+    if (activities.length === 0) {
+      return [];
+    }
 
     const rows = this.executor.all(
       query

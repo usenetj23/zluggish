@@ -21,7 +21,9 @@ export const decodeGarminImport = Schema.decodeUnknownOption(garminImportSchema)
 export function garminActivityId(response: GarminImport): string | null {
   const first = response.detailedImportResult.successes.at(0);
 
-  if (!first) return null;
+  if (!first) {
+    return null;
+  }
 
   return String(first.internalId);
 }
@@ -47,7 +49,9 @@ export function intervalsActivityId(response: IntervalsImport): string | null {
 
   const first = response.at(0);
 
-  if (!first) return null;
+  if (!first) {
+    return null;
+  }
 
   return String(first.id);
 }
