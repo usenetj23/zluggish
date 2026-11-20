@@ -1,6 +1,7 @@
 import { RuntimeContext } from '#src/context';
 import type { RepositoryContext } from '#src/context';
 import { RecordsService } from '#src/services/records.service';
+import { ClimbRecorderService } from '#src/services/climb-recorder.service';
 import { SettingsService } from '#src/services/settings.service';
 import { GoalService } from '#src/services/goals.service';
 import { MetricsService } from '#src/services/metrics.service';
@@ -82,6 +83,7 @@ const featuresLayer = Layer.mergeAll(
   GoalService.layer,
   SettingsService.layer,
   RecordsService.layer,
+  ClimbRecorderService.layer,
 ).pipe(Layer.provideMerge(sharedLayer));
 
 /** Every application service, built from the runtime context. Management uses the services below it. */
@@ -129,7 +131,8 @@ export type AppServices =
   | MetricsService
   | GoalService
   | SettingsService
-  | RecordsService;
+  | RecordsService
+  | ClimbRecorderService;
 
 /** The application layer for one runtime context. */
 export function appLayer(context: RepositoryContext) {

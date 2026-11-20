@@ -23,7 +23,16 @@ import { ApplicationError, UnreadableCredentialsError } from '#src/errors';
 import { credentials, password, newUser } from '#src/dtos/management.dto';
 import type { HttpRuntime } from '#src/http/runtime';
 import { activityLinks } from '#src/http/climb-links';
-import { climbDetails, climbFacts, readClimbProfiles, readClimbSegments, readClimbs } from '#src/http/climbs';
+import {
+  climbDetails,
+  climbFacts,
+  parseClimbProfiles,
+  readClimbProfiles,
+  readClimbSegments,
+  readClimbs,
+} from '#src/http/climbs';
+import { mergeEfforts, parseClimbEfforts, type RideInput } from '#src/world/climb-efforts';
+import { DocumentsService } from '#src/services/documents.service';
 import { peerAddress } from '#src/http/routes/accounts';
 import { WORLD_TIME_EPOCH_MS } from '#src/world/state';
 import { isIP } from 'node:net';
@@ -442,6 +451,8 @@ export function createWebApp(runtime: HttpRuntime) {
 
       const recordsService = yield* RecordsService;
 
+      const documentsService = yield* DocumentsService;
+
       const player = (yield* webSessionsService.require(c.get('sessionId'))).player_id;
 
       const stats = new Map(
@@ -451,7 +462,9 @@ export function createWebApp(runtime: HttpRuntime) {
       const climbs = [];
       const segments = yield* readClimbSegments(runtime);
 
-      const profiles = yield* readClimbProfiles(runtime);
+      // Profiles learned from the rider's own recordings fill the climbs the curated file has none for.
+      const learned = parseClimbProfiles((yield* documentsService.text(player, 'climb_profiles.json')) ?? '');
+      const profiles = { ...learned, ...(yield* readClimbProfiles(runtime)) };
       const all = yield* readClimbs(runtime);
 
       for (const climb of all) {
@@ -484,18 +497,25 @@ export function createWebApp(runtime: HttpRuntime) {
 
       const recordsService = yield* RecordsService;
 
+      const documentsService = yield* DocumentsService;
+
       const road = Schema.decodeUnknownSync(climbRoad)(Number(c.req.param('road')));
       const player = (yield* webSessionsService.require(c.get('sessionId'))).player_id;
       const rides = yield* recordsService.climbRides(player, road);
 
-      return c.json({
-        rides: rides.map((ride) => ({
-          activityId: ride.activityId,
-          rideAt: ride.worldTime === null ? null : new Date(ride.worldTime + WORLD_TIME_EPOCH_MS).toISOString(),
-          elapsedMs: ride.elapsedMs !== null && ride.elapsedMs > 0 ? ride.elapsedMs : null,
-          links: activityLinks({ stravaActivityId: ride.stravaActivityId, remote: ride.remote }),
-        })),
-      });
+      // The rides the rider's own recordings tell about: when, how long, with what power; the others only have a time.
+      const efforts = parseClimbEfforts((yield* documentsService.text(player, 'climb_efforts.json')) ?? '')[
+        String(road)
+      ];
+
+      const inputs: RideInput[] = rides.map((ride) => ({
+        activityId: ride.activityId,
+        rideAt: ride.worldTime === null ? null : new Date(ride.worldTime + WORLD_TIME_EPOCH_MS).toISOString(),
+        elapsedMs: ride.elapsedMs !== null && ride.elapsedMs > 0 ? ride.elapsedMs : null,
+        links: activityLinks({ stravaActivityId: ride.stravaActivityId, remote: ride.remote }),
+      }));
+
+      return c.json({ rides: mergeEfforts(inputs, efforts ?? []) });
     }),
   );
   appRoutes.get('/api/me/activities/:id', (c) =>

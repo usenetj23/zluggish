@@ -1,3 +1,4 @@
+import { learnClimbs } from '#src/http/climbs';
 import { AccountsService } from '#src/services/auth.service';
 import { RideCompletionService } from '#src/services/ride-completion.service';
 import { ActivitiesService } from '#src/services/activities.service';
@@ -105,6 +106,8 @@ export function activityRoutes(app: Hono<RuntimeEnv>, runtime: Runtime) {
         )
           throw new HTTPException(401);
       });
+
+      if (outcome === 'completed') yield* learnClimbs(runtime, user.player_id, Number(id));
 
       if (finish && outcome !== 'unchanged') runtime.world.logout(BigInt(user.player_id), 'activity_finished');
 

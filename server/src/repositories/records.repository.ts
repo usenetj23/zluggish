@@ -3,6 +3,12 @@ import { sql } from 'kysely';
 import type { DatabaseSync } from 'node:sqlite';
 import { Schema } from 'effect';
 
+const climbResultRowSchema = Schema.Struct({
+  route_hash: Schema.Finite,
+  world_time: Schema.NullOr(Schema.Finite),
+  elapsed_ms: Schema.NullOr(Schema.Finite),
+});
+
 const climbRideRowSchema = Schema.Struct({
   activity_id: Schema.NullOr(Schema.Finite),
   elapsed_ms: Schema.NullOr(Schema.Finite),
@@ -86,6 +92,36 @@ export class RecordsRepository {
         .where('route_hash', '>=', 10_000)
         .where('route_hash', '<=', 11_000)
         .groupBy('route_hash'),
+    );
+  }
+
+  /** The climb portal results the game saved for one activity. */
+  climbResultsOfActivity(player: number, activity: number) {
+    return this.executor
+      .all(
+        query
+          .selectFrom('route_result')
+          .select(['route_hash', 'world_time', 'elapsed_ms'])
+          .where('player_id', '=', player)
+          .where('activity_id', '=', activity)
+          .where('route_hash', '>=', 10_000)
+          .where('route_hash', '<=', 11_000),
+      )
+      .map((row) => Schema.decodeUnknownSync(climbResultRowSchema)(row));
+  }
+
+  /** The route of an activity: the hash in the latest route result that the game saved for it. */
+  routeOfActivity(player: number, activity: number) {
+    return (
+      this.executor.get(
+        query
+          .selectFrom('route_result')
+          .select('route_hash')
+          .where('player_id', '=', player)
+          .where('activity_id', '=', activity)
+          .orderBy('id', 'desc')
+          .limit(1),
+      )?.route_hash ?? null
     );
   }
 

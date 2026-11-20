@@ -4,6 +4,7 @@ import { DocumentsService } from '#src/services/documents.service';
 import { RecordDataService } from '#src/services/record-data.service';
 import { effectRoutes } from '#src/http/effect';
 import { RecordsService } from '#src/services/records.service';
+import { learnClimbs } from '#src/http/climbs';
 import { routeCompletionStatsSchema, meetupStartSchema } from '#src/dtos/records.dto';
 import { parseProtobuf } from '#src/http/protobuf';
 import { authenticated } from '#src/http/routes/accounts';
@@ -306,6 +307,7 @@ export function recordRoutes(app: Hono<RuntimeEnv>, runtime: Runtime) {
         );
       }),
   );
+
   appRoutes.post('/api/route-results', (c) =>
     Effect.gen(function* () {
       const recordDataService = yield* RecordDataService;
@@ -322,6 +324,9 @@ export function recordRoutes(app: Hono<RuntimeEnv>, runtime: Runtime) {
       const id = yield* recordDataService.insert('route_result', RouteResultSaveRequestSchema, result);
 
       yield* recordsService.updateRouteResult(user.player_id, id);
+
+      // The ride just finished is in the recording of its activity: learn how it went. A failure never reaches the game.
+      if (result.activityId > 0n) yield* learnClimbs(runtime, user.player_id, Number(result.activityId));
 
       return c.body(null, 202);
     }),

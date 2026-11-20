@@ -2,6 +2,7 @@ import { climbSchema } from '#src/dtos/accounts.dto';
 import type { HttpRuntime } from '#src/http/runtime';
 import { resolve } from 'node:path';
 import { Effect, Schema } from 'effect';
+import { ClimbRecorderService } from '#src/services/climb-recorder.service';
 import { FilesService } from '#src/services/files.service';
 import { climbCategory, straightProfile, type ClimbCategory } from '#src/world/climb-category';
 import { parseClimbProfiles, type ClimbProfile } from '#src/world/climb-profile';
@@ -106,3 +107,36 @@ export function climbDetails(
 }
 
 export { climbProfileSchema, parseClimbProfiles, type ClimbProfile } from '#src/world/climb-profile';
+
+/**
+Learns the climb rides of an activity from its recording. The recording is stored when the ride ends and the game saves
+a climb result when the climb ends, so this runs for both events: whichever comes second finds both. A failure is only
+reported, because the game must never see it.
+*/
+export const learnClimbs = Effect.fn('climbs.learn')(function* (
+  runtime: HttpRuntime,
+  player: number,
+  activity: number,
+) {
+  yield* Effect.gen(function* () {
+    const recorder = yield* ClimbRecorderService;
+    const climbs = new Map<string, { distanceM: number; elevationM: number }>();
+
+    for (const climb of yield* readClimbs(runtime)) {
+      const facts = climbFacts(climb.name);
+
+      if (facts.distanceKm !== null && facts.elevationM !== null)
+        climbs.set(climb.road, { distanceM: facts.distanceKm * 1000, elevationM: facts.elevationM });
+    }
+
+    yield* recorder.record(player, activity, climbs);
+  }).pipe(
+    Effect.catchCause((cause) =>
+      Effect.sync(() =>
+        runtime.world.lifecycle.log.warn('climbs.learn_failed', 'The climb rides could not be learned', {
+          error: String(cause),
+        }),
+      ),
+    ),
+  );
+});

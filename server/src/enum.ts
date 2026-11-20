@@ -215,6 +215,8 @@ export const RiderDocumentName = {
   RunalyzeTokenTxt: 'runalyze_token.txt',
   GarthOauth1TokenJson: 'garth/oauth1_token.json',
   GarthOauth2TokenJson: 'garth/oauth2_token.json',
+  ClimbEffortsJson: 'climb_efforts.json',
+  ClimbProfilesJson: 'climb_profiles.json',
   EncryptionKeyBin: 'encryption_key.bin',
   RelayAuthVersion: 'relay-auth-version',
 } as const;

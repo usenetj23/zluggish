@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { clock, day, providerLabel, type Climb, type ClimbRide } from './climbs';
+  import { clock, day, providerLabel, statLabels, type Climb, type ClimbRide } from './climbs';
   import ClimbProfile from './ClimbProfile.svelte';
 
   let {
@@ -61,7 +61,7 @@
 
   <p class="source" class:imported={climb.profileSource === 'imported'}>
     {climb.profileSource === 'imported'
-      ? 'Profile from the climb data'
+      ? 'Profile from your recorded ride'
       : 'Straight-line estimate, no recorded profile yet'}
   </p>
 
@@ -80,6 +80,11 @@
           <li>
             <span class="ride-date">{ride.rideAt ? day(ride.rideAt) : 'Unknown date'}</span>
             <span class="ride-time">{ride.elapsedMs !== null ? clock(ride.elapsedMs) : 'No time'}</span>
+            {#if ride.stats !== null}
+              {#each statLabels(ride.stats) as label, i (i)}
+                <span class="ride-stat">{label}</span>
+              {/each}
+            {/if}
             {#if ride.links.length > 0}
               <span class="ride-links">
                 {#each ride.links as link (link.provider)}
@@ -93,6 +98,8 @@
                   >
                 {/each}
               </span>
+            {:else if ride.stats !== null}
+              <span class="muted">Recorded ride</span>
             {:else}
               <span class="muted">No activity link</span>
             {/if}
@@ -166,6 +173,11 @@
   .ride-time {
     font-variant-numeric: tabular-nums;
     min-width: 5rem;
+  }
+  .ride-stat {
+    font-size: 0.8125rem;
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
   }
   .ride-links {
     display: flex;

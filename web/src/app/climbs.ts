@@ -20,11 +20,19 @@ export type Climb = {
 
 export type ClimbLink = { provider: 'strava' | 'garmin' | 'intervals'; url: string };
 
+export type RideStats = {
+  avgPowerW: number | null;
+  maxPowerW: number | null;
+  avgHr: number | null;
+  maxHr: number | null;
+};
+
 export type ClimbRide = {
   activityId: number | null;
   rideAt: string | null;
   elapsedMs: number | null;
   links: ClimbLink[];
+  stats: RideStats | null;
 };
 
 export const categoryTabs = ['all', 'HC', '1', '2', '3', '4', 'none'] as const;
@@ -70,3 +78,17 @@ export const clock = (ms: number): string => {
 
 export const day = (iso: string): string =>
   new Date(iso).toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' });
+
+export const statLabels = (stats: RideStats): string[] => {
+  const labels: string[] = [];
+
+  if (stats.avgPowerW !== null) labels.push(`${stats.avgPowerW} W avg`);
+
+  if (stats.maxPowerW !== null) labels.push(`${stats.maxPowerW} W max`);
+
+  if (stats.avgHr !== null) labels.push(`${stats.avgHr} bpm avg`);
+
+  if (stats.maxHr !== null) labels.push(`${stats.maxHr} bpm max`);
+
+  return labels;
+};
