@@ -225,7 +225,7 @@
                             : path === '/climbs'
                               ? 'Climbs'
                               : path === '/voice'
-                                ? 'Voice'
+                                ? 'Voice & Music'
                                 : path === '/install/windows'
                                   ? 'Windows setup'
                                   : path === '/install/macos'
@@ -842,7 +842,7 @@
       {@render link('/', 'Profile', !manage && title === 'Profile')}
       {@render link('/activities', 'Activities', title === 'Activities')}
       {@render link('/climbs', 'Climbs', title === 'Climbs')}
-      {@render link('/voice', 'Voice', path === '/voice')}
+      {@render link('/voice', 'Voice & Music', path === '/voice')}
       {@render link('/import', 'Import', path === '/import' || path === '/import/local' || path === '/zwift')}
       {@render link('/export', 'Export', path === '/export')}
       {@render link('/integrations', 'Integrations', path === '/integrations')}

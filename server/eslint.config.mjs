@@ -157,6 +157,11 @@ export default defineConfig([
     basePath: fileURLToPath(new URL('..', import.meta.url)),
     files: ['web/**/*.ts'],
     plugins: { '@typescript-eslint': typescriptEslint.plugin, 'import-x': importX },
+    settings: {
+      'import-x/resolver-next': [
+        createTypeScriptImportResolver({ project: [fileURLToPath(new URL('../web/tsconfig.json', import.meta.url))] }),
+      ],
+    },
     languageOptions: { parser: typescriptEslint.parser, globals: { ...globals.browser, ...globals.node } },
     rules: {
       ...typescriptEslint.configs.recommended[2].rules,

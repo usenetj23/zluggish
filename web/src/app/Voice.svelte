@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
+  import { Ducker, parseEmbed, parseNow, radioApi, radioChannels, type Embed } from './music';
 
   type VoiceEvent = { kind: string; speak: string; self?: boolean; lang?: string };
 
@@ -18,7 +19,146 @@
 
   let started = $state(false);
 
+  let channelSlug = $state('zwift-time');
+  let musicVolume = $state(0.5);
+  let nowTitle = $state('');
+  let embed = $state<Embed | null>(null);
+  let embedInput = $state('');
+  let musicNote = $state('');
+
+  let radio: HTMLAudioElement | undefined;
+  let radioTrackId = 0;
+  let radioNext: ReturnType<typeof setTimeout> | undefined;
+  let pendingSeek = 0;
+  let ytPlayer: YtPlayer | undefined;
+  let ytApi: Promise<YtApi> | undefined;
   let speaking = 0;
+  let unduckTimer: ReturnType<typeof setTimeout> | undefined;
+
+  // Whatever music is playing bends around the voice: soft down to five
+  // percent while a sentence is spoken, a slow rising ramp back after.
+  const ducker = new Ducker((level) => {
+    if (radio) radio.volume = level;
+
+    ytPlayer?.setVolume(Math.round(level * 100));
+  });
+
+  async function youTubeApi(): Promise<YtApi> {
+    ytApi ??= new Promise((resolve) => {
+      if (window.YT?.Player) resolve(window.YT);
+
+      const previous = window.onYouTubeIframeAPIReady;
+
+      window.onYouTubeIframeAPIReady = () => {
+        previous?.();
+
+        if (window.YT) resolve(window.YT);
+      };
+
+      const tag = document.createElement('script');
+
+      tag.src = 'https://www.youtube.com/iframe_api';
+      document.head.append(tag);
+    });
+
+    return ytApi;
+  }
+
+  async function syncRadio(force = false) {
+    if (!radio) return;
+
+    try {
+      const response = await fetch(`${radioApi}?action=now${channelSlug === '' ? '' : '&channel=' + channelSlug}`);
+      const track = parseNow(await response.json());
+
+      if (!track) {
+        musicNote = 'the station did not answer';
+
+        return;
+      }
+
+      nowTitle = `${track.artist} — ${track.title}`;
+      musicNote = '';
+
+      if (force || track.id !== radioTrackId) {
+        radioTrackId = track.id;
+        pendingSeek = track.seek;
+        radio.src = track.src;
+        await radio.play();
+      }
+
+      clearTimeout(radioNext);
+      radioNext = setTimeout(() => void syncRadio(), Math.max(5, track.remainingS - 1) * 1000);
+    } catch {
+      musicNote = 'the station is unreachable';
+    }
+  }
+
+  function playRadio() {
+    stopMusic(false);
+    radio = new Audio();
+    ducker.at(musicVolume);
+    radio.addEventListener('ended', () => void syncRadio(true));
+    radio.addEventListener('loadedmetadata', () => {
+      if (pendingSeek > 0 && radio) radio.currentTime = pendingSeek;
+
+      pendingSeek = 0;
+    });
+    void syncRadio(true);
+  }
+
+  function playEmbed() {
+    const placed = parseEmbed(embedInput);
+
+    if (!placed) {
+      musicNote = 'that link is not a playlist or track I recognise';
+
+      return;
+    }
+
+    musicNote = '';
+    stopMusic(false);
+    embed = placed;
+
+    if (placed.kind === 'youtube') {
+      void (async () => {
+        const api = await youTubeApi();
+
+        await tick();
+
+        const playerVars: YtPlayerVars = { autoplay: 1 };
+
+        if (placed.kind === 'youtube' && placed.listId) {
+          playerVars.listType = 'playlist';
+          playerVars.list = placed.listId;
+        }
+
+        ytPlayer = new api.Player('yt-host', {
+          videoId: placed.kind === 'youtube' ? (placed.videoId ?? '') : '',
+          playerVars,
+        });
+        ducker.at(musicVolume);
+      })();
+    }
+  }
+
+  function stopMusic(clearEmbed = true) {
+    clearTimeout(radioNext);
+    radioNext = undefined;
+    radio?.pause();
+    radio = undefined;
+    radioTrackId = 0;
+    pendingSeek = 0;
+    nowTitle = '';
+
+    if (ytPlayer) {
+      ytPlayer.stopVideo();
+      ytPlayer.destroy();
+      ytPlayer = undefined;
+    }
+
+    if (clearEmbed) embed = null;
+  }
 
   let source: EventSource | undefined;
   let channel: BroadcastChannel | undefined;
@@ -31,9 +171,15 @@
 
   const allowed = (event: VoiceEvent) => (event.kind === 'chat' ? (event.self ? speakOwn : speakChat) : speakWorkout);
 
-  /** One spoken sentence is over. */
+  /** One spoken sentence is over: the music rises again once nothing is left to say. */
   function sentenceEnded() {
     speaking = Math.max(0, speaking - 1);
+
+    if (speaking === 0) {
+      clearTimeout(unduckTimer);
+      // A short pause between queued sentences must not lift the music twice.
+      unduckTimer = setTimeout(() => ducker.unduck(musicVolume), 400);
+    }
   }
 
   function sayBrowser(text: string, lang: string) {
@@ -62,6 +208,8 @@
 
     utterance.onstart = () => {
       speaking++;
+      clearTimeout(unduckTimer);
+      ducker.duck();
     };
 
     const finished = sentenceEnded;
@@ -145,6 +293,8 @@
         speakChat,
         speakOwn,
         speakWorkout,
+        channelSlug,
+        musicVolume,
       }),
     );
   }
@@ -180,6 +330,8 @@
       speakChat = flag(saved.speakChat, speakChat);
       speakOwn = flag(saved.speakOwn, speakOwn);
       speakWorkout = flag(saved.speakWorkout, speakWorkout);
+      channelSlug = saved.channelSlug === undefined ? channelSlug : String(saved.channelSlug);
+      musicVolume = level(saved.musicVolume, musicVolume, 0, 1);
     } catch {
       // Settings are a convenience: a broken store starts defaults.
     }
@@ -230,6 +382,8 @@
       speechSynthesis.removeEventListener('voiceschanged', fillVoices);
       source?.close();
       speechSynthesis.cancel();
+      stopMusic();
+      clearTimeout(unduckTimer);
     };
   });
 </script>
@@ -237,8 +391,9 @@
 <section class="voice-panel">
   <p class="lead">
     The ride read aloud: chat bubbles of the game and the blocks of a running workout are spoken by the browser's own
-    voice, in the language you pick. This page starts listening the moment you open it — keep it open on any device
-    while you ride.
+    voice, in the language you pick — with music underneath: the Zwift Time radio or your own playlist, ducked smoothly
+    whenever the voice speaks. This page starts listening the moment you open it — keep it open on any device while you
+    ride.
   </p>
   <p class="status" class:on={started && connected} class:warn={started && !connected} aria-live="polite">
     <span class="dot"></span>
@@ -287,6 +442,60 @@
             : 'Voice test. One two three. Power target: two hundred watts.',
         )}>test voice</button
     >
+  </p>
+  <h3>Music</h3>
+  <div class="fields">
+    <label>
+      radio channel
+      <select
+        bind:value={channelSlug}
+        onchange={() => {
+          persist();
+          if (radio) void syncRadio(true);
+        }}
+      >
+        {#each radioChannels as option (option.slug)}<option value={option.slug}>{option.name}</option>{/each}
+      </select>
+    </label>
+    <label>
+      music volume <span class="muted">{musicVolume.toFixed(2)}</span>
+      <input
+        type="range"
+        min="0"
+        max="1"
+        step="0.05"
+        bind:value={musicVolume}
+        onchange={() => {
+          ducker.at(musicVolume);
+          persist();
+        }}
+      />
+    </label>
+  </div>
+  <p class="buttons">
+    <button type="button" onclick={playRadio}>play radio</button>
+    <button type="button" onclick={() => stopMusic()}>stop music</button>
+  </p>
+  {#if nowTitle}<p class="muted">on air: {nowTitle}</p>{/if}
+  <p class="embed">
+    <label>
+      or paste a playlist link
+      <input type="url" bind:value={embedInput} placeholder="https://open.spotify.com/playlist/…" />
+    </label>
+    <button type="button" onclick={playEmbed}>play link</button>
+  </p>
+  {#if embed?.kind === 'youtube'}
+    <div id="yt-host" class="player"></div>
+  {:else if embed && embed.kind !== 'link'}
+    <iframe class="player" src={embed.src} allow="autoplay; encrypted-media; clipboard-write" title="web player"
+    ></iframe>
+  {:else if embed?.kind === 'link'}
+    <p class="muted">{embed.label} <a href={embed.href} target="_blank" rel="noopener">open {embed.label}</a></p>
+  {/if}
+  {#if musicNote}<p class="warn-text">{musicNote}</p>{/if}
+  <p class="muted">
+    the radio and any YouTube playlist duck to 5% while the voice speaks and rise back slowly; Spotify and Tidal players
+    play inside their own frame — lower their volume by hand. Apple and Amazon open in their own tab.
   </p>
   {#if feed.length > 0}
     <h3>What the server just sent</h3>
@@ -378,5 +587,25 @@
   }
   .muted {
     opacity: 0.7;
+  }
+  .embed {
+    display: flex;
+    gap: 0.6rem;
+    align-items: end;
+  }
+  .embed label {
+    flex: 1;
+  }
+  .embed input {
+    width: 100%;
+  }
+  .player {
+    width: 100%;
+    min-height: 12rem;
+    border: 0;
+    margin-top: 0.5rem;
+  }
+  .warn-text {
+    color: #ffcc00;
   }
 </style>

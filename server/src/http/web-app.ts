@@ -85,7 +85,7 @@ export function createWebApp(runtime: HttpRuntime) {
     c.header('X-Content-Type-Options', 'nosniff');
     c.header(
       'Content-Security-Policy',
-      "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; frame-ancestors 'none'; base-uri 'none'",
+      "default-src 'self'; img-src 'self' data: https://www.lucadegre.it; style-src 'self' 'unsafe-inline'; connect-src 'self' https://www.lucadegre.it; media-src 'self' https://www.lucadegre.it; script-src 'self' https://www.youtube.com; frame-src https://www.youtube-nocookie.com https://www.youtube.com https://open.spotify.com https://embed.tidal.com https://w.soundcloud.com https://widget.deezer.com https://www.mixcloud.com https://embed.music.apple.com; frame-ancestors 'none'; base-uri 'none'",
     );
     const before = runtime.effects.runSync(durability.changes());
     await next();
