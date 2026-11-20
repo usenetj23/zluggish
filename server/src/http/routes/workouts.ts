@@ -13,8 +13,8 @@ import { HTTPException } from 'hono/http-exception';
 The riders a workout file is read to: the one who asked or, when the request carries no identity, the only rider who
 is online. With several riders online nobody is guessed, so a plan is never read to the wrong one.
 */
-function listeners(asker: number | null, online: readonly number[]) {
-  if (asker !== null) return [asker];
+function listeners(asker: number | null, online: ReadonlyArray<number>) {
+  if (asker !== null) {return [asker];}
 
   return online.length === 1 ? online : [];
 }
@@ -104,13 +104,13 @@ export function workoutRoutes(app: Hono<RuntimeEnv>, runtime: Runtime) {
       yield* Effect.gen(function* () {
         const plan = parsePlan(content.toString());
 
-        if (!plan) return;
+        if (!plan) {return;}
 
         const voiceService = yield* VoiceService;
         const online = runtime.world.online.keys().toArray().map(Number);
 
         for (const player of listeners(c.get('user')?.player_id ?? null, online))
-          yield* voiceService.onWorkout(player, plan);
+          {yield* voiceService.onWorkout(player, plan);}
       }).pipe(
         Effect.catchCause((cause) =>
           Effect.sync(() =>

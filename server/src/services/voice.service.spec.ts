@@ -3,11 +3,13 @@ import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 import { Context, Effect, Exit, Layer, Scope } from 'effect';
 import { RuntimeContext } from '#src/context';
-import { VoiceService, type VoiceEvent } from '#src/services/voice.service';
+import { VoiceService } from '#src/services/voice.service';
+import type { VoiceEvent } from '#src/services/voice.service';
 
 const quiet = { info() {}, warn() {}, verbose() {}, error() {} };
 
 // SAFETY: VoiceService only reads world.lifecycle.log from the context, which this stub provides.
+// oxlint-disable-next-line typescript/no-unsafe-type-assertion
 const context = { world: { lifecycle: { log: quiet } } } as never;
 
 function service(t: TestContext) {
@@ -29,7 +31,7 @@ const wait = (ms: number) =>
 
 await test('chat bubbles reach the clients whose rider is a recipient', (t) => {
   const voice = service(t);
-  const mine: VoiceEvent[] = [];
+  const mine: Array<VoiceEvent> = [];
 
   const unsubscribe = Effect.runSync(
     voice.subscribe(7, 'pl', (event) => {
@@ -49,7 +51,7 @@ await test('chat bubbles reach the clients whose rider is a recipient', (t) => {
 
 await test('the rider speaks their own bubble without a name', (t) => {
   const voice = service(t);
-  const mine: VoiceEvent[] = [];
+  const mine: Array<VoiceEvent> = [];
 
   Effect.runSync(
     voice.subscribe(7, 'en', (event) => {
@@ -64,7 +66,7 @@ await test('the rider speaks their own bubble without a name', (t) => {
 
 await test('a fetched plan announces the summary at once and the later blocks with time', async (t) => {
   const voice = service(t);
-  const mine: VoiceEvent[] = [];
+  const mine: Array<VoiceEvent> = [];
 
   Effect.runSync(
     voice.subscribe(7, 'pl', (event) => {
@@ -105,7 +107,7 @@ await test('a fetched plan announces the summary at once and the later blocks wi
 
 await test('a new workout replaces the schedule of the previous one', async (t) => {
   const voice = service(t);
-  const mine: VoiceEvent[] = [];
+  const mine: Array<VoiceEvent> = [];
 
   Effect.runSync(
     voice.subscribe(7, 'pl', (event) => {
@@ -138,7 +140,7 @@ await test('a new workout replaces the schedule of the previous one', async (t) 
 
 await test('chat is spoken in the language it was written in', (t) => {
   const voice = service(t);
-  const mine: VoiceEvent[] = [];
+  const mine: Array<VoiceEvent> = [];
 
   Effect.runSync(
     voice.subscribe(7, 'en', (event) => {

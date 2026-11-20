@@ -12,7 +12,7 @@ export interface PlanBlock {
 
 export interface WorkoutPlan {
   name: string;
-  blocks: PlanBlock[];
+  blocks: Array<PlanBlock>;
   totalSeconds: number;
 }
 
@@ -34,13 +34,13 @@ const num = (value: string | undefined): number | null => {
   return value !== undefined && value !== '' && Number.isFinite(result) && result >= 0 ? result : null;
 };
 
-const list = <Item>(value: Item | Item[] | undefined): Item[] =>
+const list = <Item>(value: Item | Array<Item> | undefined): Array<Item> =>
   value === undefined ? [] : Array.isArray(value) ? value : [value];
 
 interface RawSection {
   '@_name'?: string;
   '@_repeats'?: string;
-  Block?: RawBlock | RawBlock[];
+  Block?: RawBlock | Array<RawBlock>;
 }
 
 interface RawBlock {
@@ -85,26 +85,35 @@ A .zwo workout file as a flat list of blocks. Sections repeat through their
 lap blocks are skipped. A plan with no blocks at all comes back null.
 */
 export function parsePlan(content: string): WorkoutPlan | null {
-  if (content.length > 16 * 1024 * 1024 || XMLValidator.validate(content) !== true) return null;
+  if (content.length > 16 * 1024 * 1024 || XMLValidator.validate(content) !== true) {
+    return null;
+  }
 
   // SAFETY: the content is valid XML, so the parser returns an object; every field is read through optional access.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   const file = (parser.parse(content) as { workoutFile?: { Name?: string; Sections?: { Section?: RawSection } } })
     .workoutFile;
 
-  if (!file) return null;
+  if (!file) {
+    return null;
+  }
 
-  const blocks: PlanBlock[] = [];
+  const blocks: Array<PlanBlock> = [];
 
   for (const section of list(file.Sections?.Section)) {
     const name = section['@_name'] ?? '';
     const repeats = Math.max(1, Math.trunc(num(section['@_repeats']) ?? 1));
 
-    for (let repeat = 0; repeat < repeats; repeat += 1)
+    for (let repeat = 0; repeat < repeats; repeat += 1) {
       for (const block of list(section.Block)) {
-        if (block['@_type'] === 'lap') continue;
+        if (block['@_type'] === 'lap') {
+          continue;
+        }
 
         // A file from a third party must not make the plan, or the timers made from it, unbounded.
-        if (blocks.length >= MAX_BLOCKS) return null;
+        if (blocks.length >= MAX_BLOCKS) {
+          return null;
+        }
 
         const rawSeconds = num(block['@_time']);
         const seconds = rawSeconds === null ? null : Math.min(rawSeconds, MAX_BLOCK_SECONDS);
@@ -119,9 +128,12 @@ export function parsePlan(content: string): WorkoutPlan | null {
           cadence: num(block['@_cadence']),
         });
       }
+    }
   }
 
-  if (blocks.length === 0) return null;
+  if (blocks.length === 0) {
+    return null;
+  }
 
   return {
     name: file.Name ?? '',

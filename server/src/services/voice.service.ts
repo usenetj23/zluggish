@@ -38,12 +38,14 @@ const make = Effect.gen(function* () {
   const log = context.world.lifecycle.log;
 
   const listeners = new Map<number, Set<Listener>>();
-  const timers = new Map<number, ReturnType<typeof setTimeout>[]>();
+  const timers = new Map<number, Array<ReturnType<typeof setTimeout>>>();
 
   yield* Effect.addFinalizer(() =>
     Effect.sync(() => {
       for (const list of timers.values()) {
-        for (const timer of list) clearTimeout(timer);
+        for (const timer of list) {
+          clearTimeout(timer);
+        }
       }
 
       timers.clear();
@@ -51,12 +53,16 @@ const make = Effect.gen(function* () {
   );
 
   const schedule = (player: number, plan: WorkoutPlan) => {
-    for (const timer of timers.get(player) ?? []) clearTimeout(timer);
+    for (const timer of timers.get(player) ?? []) {
+      clearTimeout(timer);
+    }
 
-    const scheduled: ReturnType<typeof setTimeout>[] = [];
+    const scheduled: Array<ReturnType<typeof setTimeout>> = [];
 
     const at = (delayS: number, kind: VoiceEvent['kind'], build: (language: VoiceLanguage) => string) => {
-      if (delayS < 0) return;
+      if (delayS < 0) {
+        return;
+      }
 
       scheduled.push(
         setTimeout(() => {
@@ -87,7 +93,9 @@ const make = Effect.gen(function* () {
       elapsed += duration;
     }
 
-    if (elapsed > 0) at(elapsed, 'finish', finishSpeech);
+    if (elapsed > 0) {
+      at(elapsed, 'finish', finishSpeech);
+    }
 
     timers.set(player, scheduled);
   };
@@ -108,17 +116,23 @@ const make = Effect.gen(function* () {
       return () => {
         set.delete(listener);
 
-        if (set.size === 0) listeners.delete(player);
+        if (set.size === 0) {
+          listeners.delete(player);
+        }
       };
     }),
 
-    onSocial: Effect.fn('VoiceService.onSocial')(function* (update: SocialUpdate, recipients: readonly bigint[]) {
-      if (!update.text) return;
+    onSocial: Effect.fn('VoiceService.onSocial')(function* (update: SocialUpdate, recipients: ReadonlyArray<bigint>) {
+      if (!update.text) {
+        return;
+      }
 
       for (const [player, set] of listeners) {
         const to = BigInt(player);
 
-        if (!recipients.includes(to)) continue;
+        if (!recipients.includes(to)) {
+          continue;
+        }
 
         for (const listener of set) {
           const self = update.playerId === to;
@@ -144,7 +158,9 @@ const make = Effect.gen(function* () {
     }),
 
     stop: Effect.fn('VoiceService.stop')(function* (player: number) {
-      for (const timer of timers.get(player) ?? []) clearTimeout(timer);
+      for (const timer of timers.get(player) ?? []) {
+        clearTimeout(timer);
+      }
 
       timers.delete(player);
     }),

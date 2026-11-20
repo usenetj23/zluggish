@@ -102,7 +102,7 @@ export class World {
 
   /** Every chat bubble of the game, copied to the voice service to be read aloud. */
   chatObserver:
-    | ((update: { playerId: bigint; from: string; text: string }, recipients: readonly bigint[]) => void)
+    | ((update: { playerId: bigint; from: string; text: string }, recipients: ReadonlyArray<bigint>) => void)
     | undefined;
 
   readonly personal = new Map<bigint, Map<bigint, PlayerState>>();

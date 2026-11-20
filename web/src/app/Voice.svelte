@@ -10,10 +10,10 @@
   let speakChat = $state(true);
   let speakOwn = $state(false);
   let speakWorkout = $state(true);
-  let voiceNames = $state<string[]>([]);
+  let voiceNames = $state<Array<string>>([]);
   let statusText = $state('off');
   let connected = $state(false);
-  let feed = $state<{ id: number; at: string; kind: string; speak: string; heard: boolean }[]>([]);
+  let feed = $state<Array<{ id: number; at: string; kind: string; speak: string; heard: boolean }>>([]);
   let feedId = 0;
 
   let started = $state(false);
@@ -52,7 +52,9 @@
         ? speechSynthesis.getVoices().find((v) => v.name === voiceName)
         : speechSynthesis.getVoices().find((v) => v.lang.toLowerCase().startsWith(lang));
 
-    if (voice) utterance.voice = voice;
+    if (voice) {
+      utterance.voice = voice;
+    }
 
     utterance.lang = lang === 'pl' ? 'pl-PL' : 'en-GB';
     utterance.rate = rate;
@@ -81,7 +83,9 @@
 
     voiceNames = (local.length > 0 ? local : all).map((v) => v.name);
 
-    if (voiceName && !voiceNames.includes(voiceName)) voiceName = '';
+    if (voiceName && !voiceNames.includes(voiceName)) {
+      voiceName = '';
+    }
   }
 
   const stamp = () => new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -100,7 +104,7 @@
       statusText = 'reconnecting — is this browser signed in to the app?';
     };
 
-    for (const kind of ['chat', 'summary', 'block', 'countdown', 'finish', 'start', 'target', 'cue'])
+    for (const kind of ['chat', 'summary', 'block', 'countdown', 'finish', 'start', 'target', 'cue']) {
       source.addEventListener(kind, (event: MessageEvent<string>) => {
         const data: VoiceEvent = JSON.parse(event.data);
         const heard = started && allowed(data);
@@ -108,13 +112,19 @@
         // The feed shows everything the server sent, even what a filter muted.
         feed = [{ id: feedId++, at: stamp(), kind: data.kind, speak: data.speak, heard }, ...feed].slice(0, 40);
 
-        if (heard) say(data.speak, data.lang ?? language);
+        if (heard) {
+          say(data.speak, data.lang ?? language);
+        }
       });
+    }
   }
 
   function toggle() {
-    if (started) stop();
-    else start();
+    if (started) {
+      stop();
+    } else {
+      start();
+    }
   }
 
   function start() {
@@ -153,7 +163,9 @@
     fillVoices();
     persist();
 
-    if (started) connect();
+    if (started) {
+      connect();
+    }
   }
 
   /** A stored number (an older page kept some as text) inside its range, or the default. */
@@ -192,7 +204,9 @@
     const poll = setInterval(() => {
       fillVoices();
 
-      if (++tries > 10 || voiceNames.length > 0) clearInterval(poll);
+      if (++tries > 10 || voiceNames.length > 0) {
+        clearInterval(poll);
+      }
     }, 700);
 
     speechSynthesis.addEventListener('voiceschanged', fillVoices);
@@ -202,7 +216,9 @@
     channel.onmessage = (event: MessageEvent<{ claim?: string; alive?: string }>) => {
       const from = event.data.claim ?? event.data.alive;
 
-      if (!from || from === myId) return;
+      if (!from || from === myId) {
+        return;
+      }
 
       heardAt = Date.now();
 
@@ -213,8 +229,9 @@
     };
 
     const heartbeat = setInterval(() => {
-      if (started) channel?.postMessage({ alive: myId });
-      else if (otherTab && Date.now() - heardAt > 5000) {
+      if (started) {
+        channel?.postMessage({ alive: myId });
+      } else if (otherTab && Date.now() - heardAt > 5000) {
         // The claiming tab is gone: take the voice back.
         otherTab = '';
         start();
