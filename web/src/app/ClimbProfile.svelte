@@ -4,11 +4,15 @@
   let { points, label }: { points: Array<[number, number]>; label: string } = $props();
 
   const profileData = $derived.by(() => {
-    if (points.length < 2) return null;
+    if (points.length < 2) {
+      return null;
+    }
 
-    const lastDist = points[points.length - 1][0];
+    const lastDist = points.at(-1)?.[0] ?? 0;
 
-    if (lastDist === 0) return null;
+    if (lastDist === 0) {
+      return null;
+    }
 
     const elevations = points.map((p) => p[1]);
     const minElev = Math.min(...elevations);

@@ -3,8 +3,10 @@ import type { HttpRuntime } from '#src/http/runtime';
 import { resolve } from 'node:path';
 import { Effect, Schema } from 'effect';
 import { FilesService } from '#src/services/files.service';
-import { climbCategory, straightProfile, type ClimbCategory } from '#src/world/climb-category';
-import { parseClimbProfiles, type ClimbProfile } from '#src/world/climb-profile';
+import { climbCategory, straightProfile } from '#src/world/climb-category';
+import type { ClimbCategory } from '#src/world/climb-category';
+import { parseClimbProfiles } from '#src/world/climb-profile';
+import type { ClimbProfile } from '#src/world/climb-profile';
 
 const climbSegments = Schema.Record(
   Schema.String,

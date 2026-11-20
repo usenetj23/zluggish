@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import type { Api } from '../lib/api';
-  import { categoryTabs, climbsResponse, clock, day, matchesTab, tabOf, type CategoryTab, type Climb } from './climbs';
+  import { categoryTabs, climbsResponse, clock, day, matchesTab, tabOf } from './climbs';
+  import type { CategoryTab, Climb } from './climbs';
   import ClimbDetail from './ClimbDetail.svelte';
 
   const segment = (id: number) => `https://www.strava.com/segments/${id}`;
@@ -12,12 +13,12 @@
     api: Api;
   } = $props();
 
-  let climbs = $state<Climb[] | null>(null);
+  let climbs = $state<Array<Climb> | null>(null);
   let total = $state(0);
   let failure = $state('');
   let activeTab = $state<CategoryTab>('all');
   let expanded = $state<Set<string>>(new Set());
-  let tabButtons = $state<(HTMLButtonElement | null)[]>([]);
+  let tabButtons = $state<Array<HTMLButtonElement | null>>([]);
 
   const ridden = (climb: Climb) => (climb.lastRide ? Date.parse(climb.lastRide) : Number.NEGATIVE_INFINITY);
 
@@ -30,17 +31,25 @@
   const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
 
   const tabLabel = (tab: CategoryTab): string => {
-    if (tab === 'all') return 'All';
+    if (tab === 'all') {
+      return 'All';
+    }
 
-    if (tab === 'none') return 'Uncategorised';
+    if (tab === 'none') {
+      return 'Uncategorised';
+    }
 
-    if (tab === 'HC') return 'HC';
+    if (tab === 'HC') {
+      return 'HC';
+    }
 
     return `Cat ${tab}`;
   };
 
   const countForTab = (tab: CategoryTab): number => {
-    if (!climbs) return 0;
+    if (!climbs) {
+      return 0;
+    }
 
     return climbs.filter((c) => matchesTab(c, tab)).length;
   };
@@ -62,7 +71,7 @@
 
   const onTabKey = (e: KeyboardEvent, index: number) => {
     const tabs = categoryTabs;
-    let newIndex = index;
+    let newIndex: number;
 
     if (e.key === 'ArrowRight') {
       newIndex = (index + 1) % tabs.length;

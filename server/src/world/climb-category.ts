@@ -5,15 +5,25 @@ export type ClimbCategory = 'HC' | '1' | '2' | '3' | '4';
 export function climbCategory(distanceM: number, avgGradePct: number): ClimbCategory | null {
   const score = distanceM * avgGradePct;
 
-  if (score >= 80_000) return 'HC';
+  if (score >= 80_000) {
+    return 'HC';
+  }
 
-  if (score >= 64_000) return '1';
+  if (score >= 64_000) {
+    return '1';
+  }
 
-  if (score >= 32_000) return '2';
+  if (score >= 32_000) {
+    return '2';
+  }
 
-  if (score >= 16_000) return '3';
+  if (score >= 16_000) {
+    return '3';
+  }
 
-  if (score >= 8000) return '4';
+  if (score >= 8000) {
+    return '4';
+  }
 
   return null;
 }

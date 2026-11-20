@@ -34,19 +34,29 @@ export type CategoryTab = (typeof categoryTabs)[number];
 export const tabOf = (value: string | null): CategoryTab => categoryTabs.find((tab) => tab === value) ?? 'all';
 
 export const matchesTab = (climb: Climb, tab: CategoryTab): boolean => {
-  if (tab === 'all') return true;
+  if (tab === 'all') {
+    return true;
+  }
 
-  if (tab === 'none') return climb.category === null;
+  if (tab === 'none') {
+    return climb.category === null;
+  }
 
   return climb.category === tab;
 };
 
 export const gradeBand = (gradePct: number): 'flat' | 'easy' | 'steady' | 'steep' => {
-  if (gradePct < 3) return 'flat';
+  if (gradePct < 3) {
+    return 'flat';
+  }
 
-  if (gradePct < 6) return 'easy';
+  if (gradePct < 6) {
+    return 'easy';
+  }
 
-  if (gradePct < 9) return 'steady';
+  if (gradePct < 9) {
+    return 'steady';
+  }
 
   return 'steep';
 };

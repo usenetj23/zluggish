@@ -479,20 +479,22 @@ export function createWebApp(runtime: HttpRuntime) {
       for (const climb of all) {
         const row = stats.get(climb.road);
 
-        if (row) {
-          const facts = climbFacts(climb.name);
-
-          climbs.push({
-            road: climb.road,
-            ...facts,
-            rides: row.rides,
-            bestMs: row.best_ms,
-            strava: segments[climb.road] ?? null,
-            lastRide:
-              row.last_world_time === null ? null : new Date(row.last_world_time + WORLD_TIME_EPOCH_MS).toISOString(),
-            ...climbDetails(facts, profiles[climb.road]),
-          });
+        if (!row) {
+          continue;
         }
+
+        const facts = climbFacts(climb.name);
+
+        climbs.push({
+          road: climb.road,
+          ...facts,
+          rides: row.rides,
+          bestMs: row.best_ms,
+          strava: segments[climb.road] ?? null,
+          lastRide:
+            row.last_world_time === null ? null : new Date(row.last_world_time + WORLD_TIME_EPOCH_MS).toISOString(),
+          ...climbDetails(facts, profiles[climb.road]),
+        });
       }
 
       return c.json({ climbs, total: all.length });

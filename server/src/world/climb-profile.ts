@@ -24,13 +24,17 @@ export function parseClimbProfiles(text: string): Record<string, ClimbProfile> {
 
   const recordOption = Schema.decodeUnknownOption(Schema.Record(Schema.String, Schema.Unknown))(parsed);
 
-  if (Option.isNone(recordOption)) return {};
+  if (Option.isNone(recordOption)) {
+    return {};
+  }
 
   return Object.fromEntries(
     Object.entries(recordOption.value).flatMap(([road, value]) => {
       const entryOption = Schema.decodeUnknownOption(climbProfileSchema)(value);
 
-      if (Option.isNone(entryOption)) return [];
+      if (Option.isNone(entryOption)) {
+        return [];
+      }
 
       return [[road, entryOption.value]];
     }),
