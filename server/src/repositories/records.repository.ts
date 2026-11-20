@@ -1,6 +1,21 @@
 import { query, SqliteExecutor } from '#src/db/query';
 import { sql } from 'kysely';
 import type { DatabaseSync } from 'node:sqlite';
+import { Schema } from 'effect';
+
+const climbRideRowSchema = Schema.Struct({
+  activity_id: Schema.NullOr(Schema.Finite),
+  elapsed_ms: Schema.NullOr(Schema.Finite),
+  world_time: Schema.NullOr(Schema.Finite),
+  strava_activity_id: Schema.NullOr(Schema.Union([Schema.Finite, Schema.BigInt])),
+});
+
+const activityRangeRowSchema = Schema.Struct({
+  id: Schema.Finite,
+  start_date: Schema.String,
+  end_date: Schema.String,
+  strava_activity_id: Schema.NullOr(Schema.Union([Schema.Finite, Schema.BigInt])),
+});
 
 export class RecordsRepository {
   private readonly executor: SqliteExecutor;
@@ -103,5 +118,58 @@ export class RecordsRepository {
     if (sport !== null) selection = selection.where(sql<number>`coalesce(sport, 0)`, '=', sport);
 
     return this.executor.all(selection.orderBy('id'), true);
+  }
+
+  /** All route_result rows of a player for one climb road, LEFT JOINed to activity for strava_activity_id. */
+  climbRides(player: number, road: number) {
+    const rows = this.executor.all(
+      query
+        .selectFrom('route_result')
+        .leftJoin('activity', (join) =>
+          join
+            .onRef('activity.id', '=', 'route_result.activity_id')
+            .onRef('activity.player_id', '=', 'route_result.player_id'),
+        )
+        .select([
+          'route_result.activity_id',
+          'route_result.elapsed_ms',
+          'route_result.world_time',
+          'activity.strava_activity_id',
+        ])
+        .where('route_result.player_id', '=', player)
+        .where('route_result.route_hash', '=', road)
+        .orderBy('route_result.world_time', 'desc')
+        .limit(500),
+    );
+
+    return rows.map((row) => Schema.decodeUnknownSync(climbRideRowSchema)(row));
+  }
+
+  /** The player's activities newest first as time ranges, for resolving climb rides without activity_id. */
+  activityRanges(player: number) {
+    const rows = this.executor.all(
+      query
+        .selectFrom('activity')
+        .select(['id', 'start_date', 'end_date', 'strava_activity_id'])
+        .where('player_id', '=', player)
+        .where('start_date', 'is not', null)
+        .where('end_date', 'is not', null)
+        .orderBy('start_date', 'desc')
+        .limit(2000),
+    );
+
+    const results: Array<{ id: number; startMs: number; endMs: number; stravaActivityId: number | bigint | null }> = [];
+
+    for (const raw of rows) {
+      const parsed = Schema.decodeUnknownSync(activityRangeRowSchema)(raw);
+      const startMs = Date.parse(parsed.start_date);
+      const endMs = Date.parse(parsed.end_date);
+
+      if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) continue;
+
+      results.push({ id: parsed.id, startMs, endMs, stravaActivityId: parsed.strava_activity_id });
+    }
+
+    return results;
   }
 }

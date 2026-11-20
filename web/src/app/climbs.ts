@@ -18,6 +18,15 @@ export type Climb = {
   profileSource: 'imported' | 'estimated';
 };
 
+export type ClimbLink = { provider: 'strava' | 'garmin' | 'intervals'; url: string };
+
+export type ClimbRide = {
+  activityId: number | null;
+  rideAt: string | null;
+  elapsedMs: number | null;
+  links: ClimbLink[];
+};
+
 export const categoryTabs = ['all', 'HC', '1', '2', '3', '4', 'none'] as const;
 
 export type CategoryTab = (typeof categoryTabs)[number];
@@ -40,6 +49,14 @@ export const gradeBand = (gradePct: number): 'flat' | 'easy' | 'steady' | 'steep
   if (gradePct < 9) return 'steady';
 
   return 'steep';
+};
+
+export const providerLabel = (provider: ClimbLink['provider']): string => {
+  if (provider === 'strava') return 'Strava';
+
+  if (provider === 'garmin') return 'Garmin Connect';
+
+  return 'Intervals.icu';
 };
 
 export const clock = (ms: number): string => {

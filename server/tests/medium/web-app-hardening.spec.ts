@@ -536,6 +536,46 @@ await test('web app lists the climb portals a rider has ridden with the best tim
   ]);
 });
 
+await test('web app lists the rides of a climb from the best time, only for the rider who rode them', async (t) => {
+  const f = await mediumFixture(t);
+  const web = createWebApp(f);
+
+  const insert = f.accounts.db.prepare(
+    'INSERT INTO route_result(player_id,route_hash,world_time,elapsed_ms) VALUES (?,?,?,?)',
+  );
+
+  insert.run(f.rider.player_id, 10_052, 380_000_000_000, 600_000);
+  insert.run(f.rider.player_id, 10_052, 381_000_000_000, 540_000);
+  insert.run(f.other.player_id, 10_052, 381_000_000_000, 100_000);
+
+  const { id: session } = f.effects.runSync(
+    WebSessionsService.use((sessions) => sessions.create(f.accounts.identityOf(f.rider))),
+  );
+
+  const ask = (road: string) =>
+    web.request(`http://local:8080/api/me/climbs/${road}/rides`, {
+      headers: { Cookie: `zluggish_web_session=${session}` },
+    });
+
+  const ok = await ask('10052');
+
+  assert.equal(ok.status, 200);
+
+  const { rides } = Schema.decodeUnknownSync(
+    Schema.Struct({ rides: Schema.Array(Schema.Struct({ elapsedMs: Schema.NullOr(Schema.Number) })) }),
+  )(await ok.json());
+
+  assert.deepEqual(
+    rides.map((ride) => ride.elapsedMs),
+    [540_000, 600_000],
+  );
+  const letters = await ask('abc');
+  const outOfRange = await ask('5');
+
+  assert.equal(letters.status >= 400, true);
+  assert.equal(outOfRange.status >= 400, true);
+});
+
 await test('every climb with Strava segments is a climb of the launcher, with no segment used twice', () => {
   const climbs = Schema.decodeUnknownSync(Schema.Array(Schema.Struct({ name: Schema.String, road: Schema.String })))(
     JSON.parse(readFileSync(resolve(packageRoot(), '../assets/data/climbs.txt'), 'utf8')),

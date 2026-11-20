@@ -22,6 +22,7 @@ import { fieldErrors, NumberFromInput, satisfies, Strict } from '#src/schema';
 import { ApplicationError, UnreadableCredentialsError } from '#src/errors';
 import { credentials, password, newUser } from '#src/dtos/management.dto';
 import type { HttpRuntime } from '#src/http/runtime';
+import { activityLinks } from '#src/http/climb-links';
 import { climbDetails, climbFacts, readClimbProfiles, readClimbSegments, readClimbs } from '#src/http/climbs';
 import { peerAddress } from '#src/http/routes/accounts';
 import { WORLD_TIME_EPOCH_MS } from '#src/world/state';
@@ -473,6 +474,28 @@ export function createWebApp(runtime: HttpRuntime) {
       }
 
       return c.json({ climbs, total: all.length });
+    }),
+  );
+  const climbRoad = Schema.Int.check(Schema.isBetween({ minimum: 10_000, maximum: 11_000 }));
+
+  appRoutes.get('/api/me/climbs/:road/rides', (c) =>
+    Effect.gen(function* () {
+      const webSessionsService = yield* WebSessionsService;
+
+      const recordsService = yield* RecordsService;
+
+      const road = Schema.decodeUnknownSync(climbRoad)(Number(c.req.param('road')));
+      const player = (yield* webSessionsService.require(c.get('sessionId'))).player_id;
+      const rides = yield* recordsService.climbRides(player, road);
+
+      return c.json({
+        rides: rides.map((ride) => ({
+          activityId: ride.activityId,
+          rideAt: ride.worldTime === null ? null : new Date(ride.worldTime + WORLD_TIME_EPOCH_MS).toISOString(),
+          elapsedMs: ride.elapsedMs !== null && ride.elapsedMs > 0 ? ride.elapsedMs : null,
+          links: activityLinks({ stravaActivityId: ride.stravaActivityId, remote: ride.remote }),
+        })),
+      });
     }),
   );
   appRoutes.get('/api/me/activities/:id', (c) =>

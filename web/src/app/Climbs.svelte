@@ -205,7 +205,7 @@
 
           {#if isOpen}
             <div id="detail-{climb.road}" class="detail-block">
-              <ClimbDetail {climb} />
+              <ClimbDetail {climb} {api} />
             </div>
           {/if}
         </li>
