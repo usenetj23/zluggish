@@ -12,6 +12,7 @@ import { fileResponse } from '#src/http/file-response';
 import { RecordsService } from '#src/services/records.service';
 import { webConnectionRoutes } from '#src/http/web-connections';
 import { webProfileRoutes } from '#src/http/web-profile';
+import { voiceRoutes } from '#src/http/routes/voice';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Context, Next } from 'hono';
@@ -353,6 +354,7 @@ export function createWebApp(runtime: HttpRuntime) {
   );
   webConnectionRoutes(app, runtime);
   webProfileRoutes(app, runtime);
+  voiceRoutes(app, runtime);
 
   // Client setup: any rider downloads the certificate and the scripts that install it.
   appRoutes.get('/api/tls', (c) =>
@@ -877,6 +879,7 @@ export function createWebApp(runtime: HttpRuntime) {
     '/activities',
     '/activities/*',
     '/climbs',
+    '/voice',
     '/install',
     '/install/*',
     '/manage',

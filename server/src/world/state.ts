@@ -1,9 +1,10 @@
 import type { PlayerState, ServerToClient, WorldAttribute } from '#src/protocol/generated/udp-node-msgs_pb';
-import { PlayerStateSchema, ServerToClientSchema } from '#src/protocol/generated/udp-node-msgs_pb';
+import { PlayerStateSchema, ServerToClientSchema, WA_TYPE } from '#src/protocol/generated/udp-node-msgs_pb';
+import { SocialPlayerActionSchema, SocialPlayerActionType } from '#src/protocol/generated/tcp-node-msgs_pb';
 import { Lifecycle } from '#src/world/lifecycle';
 import type { Simulation } from '#src/world/simulation';
 import { StateHistory } from '#src/world/state-history';
-import { clone, create, toBinary } from '@bufbuild/protobuf';
+import { clone, create, fromBinary, toBinary } from '@bufbuild/protobuf';
 
 /** Zwift world time counts milliseconds from this Unix time. */
 export const WORLD_TIME_EPOCH_MS = 1_414_016_075_000;
@@ -98,6 +99,11 @@ export class World {
 
   /** Ride recovery follows each session start and end. */
   sessions: { login: (id: bigint) => void; logout: (id: bigint, reason: string) => void } | undefined;
+
+  /** Every chat bubble of the game, copied to the voice service to be read aloud. */
+  chatObserver:
+    | ((update: { playerId: bigint; from: string; text: string }, recipients: readonly bigint[]) => void)
+    | undefined;
 
   readonly personal = new Map<bigint, Map<bigint, PlayerState>>();
 
@@ -204,6 +210,21 @@ export class World {
   // Queue admission is bounded; the TCP owner takes/deletes a batch before sending.
   // nearby separately checkpoints each peer timestamp, suppressing unchanged snapshots.
   enqueue(update: WorldAttribute, recipients: Array<bigint> = this.online.keys().toArray()) {
+    if (this.chatObserver && update.waType === WA_TYPE.WAT_SPA) {
+      try {
+        const action = fromBinary(SocialPlayerActionSchema, update.payload);
+
+        if (action.spaType === SocialPlayerActionType.SOCIAL_TEXT_MESSAGE) {
+          this.chatObserver(
+            { playerId: action.playerId, from: `${action.firstName} ${action.lastName}`.trim(), text: action.message },
+            recipients,
+          );
+        }
+      } catch {
+        /* Not a chat bubble. */
+      }
+    }
+
     for (const id of recipients) {
       const queue = this.updates.get(id) ?? [];
 

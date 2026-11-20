@@ -24,6 +24,7 @@ import { RetentionService } from '#src/services/retention.service';
 import { RideCompletionService } from '#src/services/ride-completion.service';
 import { RideRecoveryService } from '#src/services/ride-recovery.service';
 import { UploadsService } from '#src/services/uploads.service';
+import { VoiceService } from '#src/services/voice.service';
 import { Simulation } from '#src/world/simulation';
 import { World } from '#src/world/state';
 
@@ -94,6 +95,11 @@ const acquireRuntime = Effect.fn('runtime.acquire')(function* (
 
   const runtime: Runtime = Object.assign(context, { effects });
   yield* effects.runSync(ImportsService).recover();
+
+  // Chat bubbles of the game reach the rider's voice clients.
+  const voice = effects.runSync(VoiceService);
+
+  world.chatObserver = (update, recipients) => effects.runSync(voice.onSocial(update, recipients));
 
   const simulation = new Simulation(runtime);
   const checkpoints = new CheckpointRepository(accounts.db, resolve(config.storageDir, 'zluggish.db'));
