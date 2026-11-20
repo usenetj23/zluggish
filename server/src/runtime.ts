@@ -25,6 +25,9 @@ import { RideCompletionService } from '#src/services/ride-completion.service';
 import { RideRecoveryService } from '#src/services/ride-recovery.service';
 import { UploadsService } from '#src/services/uploads.service';
 import { VoiceService } from '#src/services/voice.service';
+import { loadWad } from '#src/world/wad';
+import { indexWadWorkouts } from '#src/world/wadplan';
+import { tailZwiftLog, tailZwiftLogOverHttp } from '#src/world/zwiftlog';
 import { Simulation } from '#src/world/simulation';
 import { World } from '#src/world/state';
 
@@ -100,6 +103,28 @@ const acquireRuntime = Effect.fn('runtime.acquire')(function* (
   const voice = effects.runSync(VoiceService);
 
   world.chatObserver = (update, recipients) => effects.runSync(voice.onSocial(update, recipients));
+
+  // The client log says what the screen shows even for the workout library bundled in the game, which never passes
+  // this server. ZWIFT_LOG_URL points at a helper on the host, for a log that a container mounts too slowly to follow.
+  const onZwiftLine = (line: string) => effects.runSync(voice.onZwiftLine(line));
+
+  yield* releasing(
+    process.env.ZWIFT_LOG_URL
+      ? tailZwiftLogOverHttp(process.env.ZWIFT_LOG_URL, onZwiftLine)
+      : tailZwiftLog(process.env.ZWIFT_LOG ?? '/zwift-logs/Log.txt', onZwiftLine),
+  );
+
+  // The game's own workout archive names those log ids and carries the on-screen captions.
+  // The archive is optional: one the game changed or damaged only costs the narration of its library workouts.
+  try {
+    const wad = loadWad(process.env.ZWIFT_WAD ?? '/zwift-assets/workouts.wad');
+
+    if (wad) effects.runSync(voice.setWadWorkouts(indexWadWorkouts(wad)));
+  } catch (error) {
+    world.lifecycle.log.warn('voice.wad_failed', 'The workout archive of the game could not be read', {
+      error: error instanceof Error ? error.message : String(error),
+    });
+  }
 
   const simulation = new Simulation(runtime);
   const checkpoints = new CheckpointRepository(accounts.db, resolve(config.storageDir, 'zluggish.db'));
