@@ -10,19 +10,24 @@ export function fmtDuration(seconds: number, language: VoiceLanguage) {
     const minutes = Math.floor(whole / 60);
     const rest = whole % 60;
 
-    if (language === 'en')
-      {return rest === 0 ? `${minutes} minute${minutes === 1 ? '' : 's'}` : `${minutes} minutes and ${rest} seconds`;}
+    if (language === 'en') {
+      return rest === 0 ? `${minutes} minute${minutes === 1 ? '' : 's'}` : `${minutes} minutes and ${rest} seconds`;
+    }
 
     const minuteWord = minutes === 1 ? 'minuta' : minutes >= 2 && minutes <= 4 ? 'minuty' : 'minut';
 
-    if (rest === 0) {return `${minutes} ${minuteWord}`;}
+    if (rest === 0) {
+      return `${minutes} ${minuteWord}`;
+    }
 
     const restWord = rest === 1 ? 'sekunda' : rest >= 2 && rest <= 4 ? 'sekundy' : 'sekund';
 
     return `${minutes} ${minuteWord} i ${rest} ${restWord}`;
   }
 
-  if (language === 'en') {return `${whole} second${whole === 1 ? '' : 's'}`;}
+  if (language === 'en') {
+    return `${whole} second${whole === 1 ? '' : 's'}`;
+  }
 
   return `${whole} ${whole === 1 ? 'sekunda' : whole >= 2 && whole <= 4 ? 'sekundy' : 'sekund'}`;
 }
@@ -30,7 +35,9 @@ export function fmtDuration(seconds: number, language: VoiceLanguage) {
 const say = (value: number) => String(Math.round(value));
 
 export function fmtPower(power: PlanBlock['power'], language: VoiceLanguage) {
-  if (power === null) {return language === 'pl' ? 'dowolna moc' : 'free power';}
+  if (power === null) {
+    return language === 'pl' ? 'dowolna moc' : 'free power';
+  }
 
   const unit =
     power.format === 'ftp'
@@ -41,10 +48,11 @@ export function fmtPower(power: PlanBlock['power'], language: VoiceLanguage) {
         ? 'watów'
         : 'watts';
 
-  if (power.low !== power.high)
-    {return language === 'pl'
+  if (power.low !== power.high) {
+    return language === 'pl'
       ? `po ${say(power.low)} do ${say(power.high)} ${unit}`
-      : `at ${say(power.low)} to ${say(power.high)} ${unit}`;}
+      : `at ${say(power.low)} to ${say(power.high)} ${unit}`;
+  }
 
   return language === 'pl' ? `po ${say(power.low)} ${unit}` : `at ${say(power.low)} ${unit}`;
 }
@@ -60,13 +68,17 @@ export function blockSpeech(
 ) {
   const parts: Array<string> = [];
 
-  if (block.durationSeconds !== null) {parts.push(fmtDuration(block.durationSeconds, language));}
-  else if (block.meters !== null) {parts.push(`${Math.round(block.meters)} ${language === 'pl' ? 'metrów' : 'meters'}`);}
+  if (block.durationSeconds !== null) {
+    parts.push(fmtDuration(block.durationSeconds, language));
+  } else if (block.meters !== null) {
+    parts.push(`${Math.round(block.meters)} ${language === 'pl' ? 'metrów' : 'meters'}`);
+  }
 
   parts.push(fmtPower(block.power, language));
 
-  if (block.cadence !== null)
-    {parts.push(language === 'pl' ? `kadencja ${Math.round(block.cadence)}` : `cadence ${Math.round(block.cadence)}`);}
+  if (block.cadence !== null) {
+    parts.push(language === 'pl' ? `kadencja ${Math.round(block.cadence)}` : `cadence ${Math.round(block.cadence)}`);
+  }
 
   const lead = when === 'now' ? ['Teraz', 'Now'] : ['Za chwilę', 'Up next'];
 
@@ -95,7 +107,9 @@ export function summarySpeech(plan: WorkoutPlan, language: VoiceLanguage) {
 export function countdownSpeech(seconds: number, next: PlanBlock | null, language: VoiceLanguage) {
   const base = language === 'pl' ? `${seconds} sekund do końca bloku.` : `${seconds} seconds left in this block.`;
 
-  if (next === null) {return base;}
+  if (next === null) {
+    return base;
+  }
 
   const duration = fmtDuration(next.durationSeconds ?? 0, language);
 
@@ -125,9 +139,13 @@ const POLISH_WORDS = /\b(teraz|albo|dobrze|jedziemy|panowie|trzymaj|spokojnie|mo
 
 /** Which language a chat bubble is written in, so the voice fits the words. */
 export function chatLanguage(text: string): VoiceLanguage | undefined {
-  if (POLISH_MARKS.test(text) || POLISH_WORDS.test(text)) {return 'pl';}
+  if (POLISH_MARKS.test(text) || POLISH_WORDS.test(text)) {
+    return 'pl';
+  }
 
-  if (/[a-z]{3}/i.test(text)) {return 'en';}
+  if (/[a-z]{3}/i.test(text)) {
+    return 'en';
+  }
 
   return undefined;
 }

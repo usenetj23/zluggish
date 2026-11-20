@@ -14,7 +14,9 @@ async function readUntil(reader: ReadableStreamDefaultReader<Uint8Array>, wanted
   while (!text.includes(wanted)) {
     const chunk = await reader.read();
 
-    if (chunk.done) break;
+    if (chunk.done) {
+      break;
+    }
 
     text += decoder.decode(chunk.value);
   }
