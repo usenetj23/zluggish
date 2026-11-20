@@ -5,6 +5,7 @@
   import Connections from './Connections.svelte';
   import Activities from './Activities.svelte';
   import Climbs from './Climbs.svelte';
+  import Voice from './Voice.svelte';
   import Layout from '../components/Layout.svelte';
   import UserRow from '../components/UserRow.svelte';
   import Avatar from '../components/Avatar.svelte';
@@ -223,15 +224,17 @@
                             ? 'Settings'
                             : path === '/climbs'
                               ? 'Climbs'
-                              : path === '/install/windows'
-                                ? 'Windows setup'
-                                : path === '/install/macos'
-                                  ? 'macOS setup'
-                                  : path === '/install/linux'
-                                    ? 'Linux setup'
-                                    : installing
-                                      ? 'Install'
-                                      : 'Profile',
+                              : path === '/voice'
+                                ? 'Voice'
+                                : path === '/install/windows'
+                                  ? 'Windows setup'
+                                  : path === '/install/macos'
+                                    ? 'macOS setup'
+                                    : path === '/install/linux'
+                                      ? 'Linux setup'
+                                      : installing
+                                        ? 'Install'
+                                        : 'Profile',
   );
 
   const initials = (r: User) => `${r.first_name.charAt(0)}${r.last_name.charAt(0)}`.toUpperCase();
@@ -839,6 +842,7 @@
       {@render link('/', 'Profile', !manage && title === 'Profile')}
       {@render link('/activities', 'Activities', title === 'Activities')}
       {@render link('/climbs', 'Climbs', title === 'Climbs')}
+      {@render link('/voice', 'Voice', path === '/voice')}
       {@render link('/import', 'Import', path === '/import' || path === '/import/local' || path === '/zwift')}
       {@render link('/export', 'Export', path === '/export')}
       {@render link('/integrations', 'Integrations', path === '/integrations')}
@@ -1530,6 +1534,8 @@
         <Activities {path} {api} {go} />
       {:else if path === '/climbs'}
         <Climbs {api} />
+      {:else if path === '/voice'}
+        <Voice />
       {:else if installing}
         <Install {api} {path} {navigate} />
       {:else if path === '/settings'}

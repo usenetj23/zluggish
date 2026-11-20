@@ -436,3 +436,11 @@ form > .error {
 [data-page='dashboard'] form fieldset > div:first-of-type label {
   margin-top: 0;
 }
+
+/* A slider has no text to pad: the padding of the text fields would shorten its track and keep the knob from the ends. */
+input[type='range'] {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  accent-color: var(--orange);
+}

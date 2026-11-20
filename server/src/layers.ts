@@ -38,6 +38,7 @@ import { DiscordService } from '#src/services/discord.service';
 import { MatrixService } from '#src/services/matrix.service';
 import { AccountsService } from '#src/services/auth.service';
 import { SessionsService } from '#src/services/browser-session.service';
+import { VoiceService } from '#src/services/voice.service';
 import { Layer, ManagedRuntime } from 'effect';
 
 /** Services that use only repositories. */
@@ -82,6 +83,7 @@ const featuresLayer = Layer.mergeAll(
   GoalService.layer,
   SettingsService.layer,
   RecordsService.layer,
+  VoiceService.layer,
 ).pipe(Layer.provideMerge(sharedLayer));
 
 /** Every application service, built from the runtime context. Management uses the services below it. */
@@ -129,7 +131,8 @@ export type AppServices =
   | MetricsService
   | GoalService
   | SettingsService
-  | RecordsService;
+  | RecordsService
+  | VoiceService;
 
 /** The application layer for one runtime context. */
 export function appLayer(context: RepositoryContext) {
