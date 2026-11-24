@@ -1071,6 +1071,7 @@
   "signed_out_everywhere": "Signed out everywhere.",
   "simulation_active_ride_required": "Start riding first.",
   "simulation_blob_required": "Start a blob first.",
+  "simulation_blob_slots_full": "All four blob slots are taken. Another rider has to stop theirs with .blob off first.",
   "simulation_blob_usage": "Usage: .blob <1..30>, new, off, record, hammer, toast, attack, lead",
   "simulation_management_hint": "Use the web app management area for server commands.",
   "simulation_new_riders_notice": "New riders on the road.",
