@@ -286,10 +286,14 @@ export class Simulation {
       try {
         this.loadBlob(BigInt(id));
       } catch (error) {
-        this.runtime.world.lifecycle.log.warn('simulation.blob_load_failed', 'Skipping a solo blob that could not load', {
-          playerId: id,
-          error: String(error),
-        });
+        this.runtime.world.lifecycle.log.warn(
+          'simulation.blob_load_failed',
+          'Skipping a solo blob that could not load',
+          {
+            playerId: id,
+            error: String(error),
+          },
+        );
       }
     }
     this.tick();
@@ -365,7 +369,9 @@ export class Simulation {
   }
 
   private hasFreeBlobSlot(id: bigint): boolean {
-    return this.blobs.has(id) || [0, 1, 2, 3].some((index) => this.blobs.values().every((blob) => blob.index !== index));
+    return (
+      this.blobs.has(id) || [0, 1, 2, 3].some((index) => this.blobs.values().every((blob) => blob.index !== index))
+    );
   }
 
   loadBlob(id: bigint) {
