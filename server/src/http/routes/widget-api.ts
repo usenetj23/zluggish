@@ -99,6 +99,8 @@ export function widgetApiRoutes(app: Hono<WebEnv>, runtime: HttpRuntime): void {
 
     listenChat: (viewerId, listener) => world.chat.listen(viewerId, listener),
 
+    chatHistory: (viewerId) => world.chat.history(viewerId, 100),
+
     pushIntervalMs: 1000,
 
     log: (event, message, fields) => runtime.world.lifecycle.log.verbose(event, message, fields),

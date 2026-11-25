@@ -1,0 +1,199 @@
+@use 'color';
+@import url('fields.css');
+
+html {
+    font-size: clamp(10px, calc(13px + 10vh), 24px);
+
+    &:not(.windows-auto-hidden) {
+        .windows-auto-hidden-label {
+            display: none;
+        }
+    }
+    &:not(.windows-hidden) .controls .button.show {
+        display: none;
+    }
+    &.windows-hidden .controls .button.hide {
+        display: none;
+    }
+
+    &.solid-background {
+        background: var(--background-color);
+
+        body {
+            background: transparent;
+        }
+    }
+
+    &:not(.solid-background) body {
+        background-color: transparent !important;
+        --center-gap-offt: calc(50% - (var(--center-gap-size) / 2));
+        --center-gap-right: calc(50% + (var(--center-gap-size) / 2));
+        $base-color: color-mix(in srgb, var(--theme-base-color) calc(var(--bg-opacity, 1) * 100%), transparent);
+        // Zluggish (ATTRIBUTION.md): no texture, and the bar follows the background opacity of the window.
+        background-image:
+            linear-gradient(to right,
+                color.shade(bg, 0%, calc(87% * var(--bg-opacity, 1))),
+                transparent var(--center-gap-offt),
+                transparent var(--center-gap-offt)),
+            linear-gradient(to left,
+                color.shade(bg2, 0%, calc(82% * var(--bg-opacity, 1))),
+                transparent var(--center-gap-offt),
+                transparent var(--center-gap-offt)),
+            linear-gradient(to right,
+                $base-color,
+                $base-color var(--center-gap-offt),
+                transparent var(--center-gap-offt),
+                transparent var(--center-gap-right),
+                $base-color var(--center-gap-right),
+                $base-color);
+        background-blend-mode: normal, normal, normal;
+    }
+}
+
+html:focus-within {
+    .logo {
+        img {
+            opacity: 0;
+            visibility: hidden;
+        }
+        ms {
+            opacity: 1;
+            visibility: visible;
+        }
+    }
+}
+
+html:not(:focus-within) {
+    .logo {
+        img {
+            opacity: 1;
+            visibility: visible;
+        }
+        ms {
+            opacity: 0;
+            visibility: hidden;
+        }
+    }
+}
+
+#content {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    overflow: hidden;
+    flex: 1 1 100%;
+    padding: 0.1em 0;
+
+    .logo {
+        position: relative;
+        height: 100%;
+        padding: 0.4em 0 0.4em 0.2em;
+        display: flex;
+        align-items: center;
+        min-width: 1.4em; // for cross hairs when small
+        flex: 0 0 auto;
+
+        img,
+        ms {
+            transition: opacity 400ms, visibility 400ms;
+            height: 100%;
+        }
+
+        img {
+            --tilt: -20deg;
+            transform: rotate(var(--tilt));
+            animation: pournshake 5s;
+            animation-delay: 5s;
+            max-height: 1.8em;
+        }
+        
+        ms {
+            position: absolute;
+            top: 0;
+            left: 0.2em;
+            font-size: 1.2em;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            font-weight: 300;
+        }
+    }
+}
+
+.filler {
+    flex: 1 1;
+    height: 100%;
+}
+
+.fields {
+    padding: 0.2em 1em;
+    display: flex;
+    overflow: hidden;
+    flex: 0 0.1 auto;
+
+    .field {
+        flex: 0 0 0;
+        margin-right: 1em;
+    }
+
+    .center-gap {
+        box-sizing: content-box; // Exclude padding
+        flex: 1 0 auto;
+        width: var(--center-gap-size);
+    }
+}
+
+header {
+    white-space: nowrap;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    font-weight: 500;
+}
+
+.controls {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    margin-right: 0.3em;
+
+    .button {
+        display: flex;
+        align-items: center;
+        padding: 0.28em;
+        border-radius: 0.3em;
+        opacity: 1;
+        transition: opacity 200ms, background 200ms;
+
+        &.hidden {
+            display: none;
+        }
+
+        &:hover {
+            background-color: #fff3;
+            text-decoration: none;
+        }
+
+        &:active {
+            background-color: #0003;
+        }
+
+        ms {
+            font-size: 1.4em;
+            font-weight: 200;
+        }
+    }
+
+    .windows-auto-hidden-label {
+        font-variant: small-caps;
+        font-weight: 500;
+        font-size: 0.6em;
+        opacity: 0.86;
+        text-align: center;
+        margin-left: 0.15em;
+        margin-right: 0.1em;
+        line-height: 1;
+    }
+}

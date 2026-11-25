@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<!-- Modified for Zluggish: the Analysis, Athletes and Events buttons are hidden because Zluggish does not ship those pages yet, and the settings button of the Sauce application is removed. Upstream: SauceLLC/sauce4zwift 6de4254a454d376e8bfce02c3a098274a7723711 (GPL-3.0). -->
+<html class="" tabindex="0" data-settings-key="overview-settings-v3">
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+        <meta name="apple-mobile-web-app-capable" content="yes"/>
+        <meta http-equiv="Content-Security-Policy" content="script-src 'self';"/>
+
+        <title>Zluggish Overlay</title>
+
+        <script src="./src/preloads.js"></script>
+
+        <link rel="manifest" href="overview-manifest.json"/>
+        <link id="favicon" rel="shortcut icon" href="images/favicon.png"/>
+        <link rel="stylesheet" href="css/common.css"/>
+        <link rel="stylesheet" href="css/overview.css"/>
+
+        <script type="module" src="./src/overview.mjs?main"></script>
+    </head>
+    <body>
+        <div id="content">
+            <div class="logo app-drag">
+                <img src="images/icon128.png"/>
+                <ms>open_with</ms>
+            </div>
+            <header class="app-drag">Zluggish Overlay</header>
+            <div class="fields left"></div>
+            <div class="app-drag filler"></div>
+            <div class="fields right"></div>
+            <div class="controls">
+                <a class="button" style="display: none" data-settings-key="Analysis" href="analysis.html?windowType=analysis"
+                   title="Analysis Window" target="analysis-default"><ms>monitoring</ms></a>
+                <a class="button" style="display: none" data-settings-key="Athletes"
+                   href="athletes.html?windowType=athletes" title="Athletes Window"
+                   target="athletes-default"><ms>group</ms></a>
+                <a class="button" style="display: none" data-settings-key="Events" href="events.html?windowType=events"
+                   title="Events Window" target="events-default"><ms>event</ms></a>
+                <div class="electron-only windows-auto-hidden-label">Auto<br/>Hidden</div>
+                <div class="button hide electron-only" title="Hide Overlay Windows"><ms>visibility_off</ms></div>
+                <div class="button show electron-only" title="Show Overlay Windows"><ms>visibility</ms></div>
+                <div title="Close all windows and quit" class="button quit electron-only"><ms heavy>power_settings_new</ms></div>
+            </div>
+        </div>
+    </body>
+</html>

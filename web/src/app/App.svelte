@@ -7,6 +7,7 @@
   import ProfileData from './ProfileData.svelte';
   import Connections from './Connections.svelte';
   import Activities from './Activities.svelte';
+  import Overlay from './Overlay.svelte';
   import Climbs from './Climbs.svelte';
   import Layout from '../components/Layout.svelte';
   import UserRow from '../components/UserRow.svelte';
@@ -258,9 +259,11 @@
                                   ? t('settings')
                                   : path === '/climbs'
                                     ? t('climbs')
-                                    : apps
-                                      ? t('apps')
-                                      : (setup ?? t('profile')),
+                                    : path === '/overlay'
+                                      ? t('overlay')
+                                      : apps
+                                        ? t('apps')
+                                        : (setup ?? t('profile')),
   );
 
   const initials = (r: User) => `${r.first_name.charAt(0)}${r.last_name.charAt(0)}`.toUpperCase();
@@ -986,6 +989,7 @@
       {@render link('/activities', 'Activities', title === 'Activities')}
       {@render link('/profile', 'Profile', !manage && title === 'Profile')}
       {@render link('/climbs', 'Climbs', title === 'Climbs')}
+      {@render link('/overlay', t('overlay'), path === '/overlay')}
       {@render link('/integrations', 'Integrations', path === '/integrations')}
       {@render link('/settings', 'Settings', path === '/settings')}
       {@render link('/apps', 'Apps', apps || installing || companion)}
@@ -1686,6 +1690,8 @@
         <Activities {path} {api} {go} />
       {:else if path === '/climbs'}
         <Climbs {api} />
+      {:else if path === '/overlay'}
+        <Overlay {api} csrf={() => csrf} />
       {:else if apps}
         <Apps {api} {navigate} {administrator} />
       {:else if installingPhone}

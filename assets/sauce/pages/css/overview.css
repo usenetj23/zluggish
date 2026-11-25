@@ -1,0 +1,154 @@
+@import url("fields.css");
+html {
+  font-size: clamp(10px, 13px + 10vh, 24px);
+}
+html:not(.windows-auto-hidden) .windows-auto-hidden-label {
+  display: none;
+}
+html:not(.windows-hidden) .controls .button.show {
+  display: none;
+}
+html.windows-hidden .controls .button.hide {
+  display: none;
+}
+html.solid-background {
+  background: var(--background-color);
+}
+html.solid-background body {
+  background: transparent;
+}
+html:not(.solid-background) body {
+  background-color: transparent !important;
+  --center-gap-offt: calc(50% - (var(--center-gap-size) / 2));
+  --center-gap-right: calc(50% + (var(--center-gap-size) / 2));
+  background-image: linear-gradient(to right, hsl(var(--theme-bg-hue), var(--theme-bg-sat), calc(var(--theme-bg-light) + 0% * var(--theme-bg-shade-dir)), calc(87% * var(--bg-opacity, 1))), transparent var(--center-gap-offt), transparent var(--center-gap-offt)), linear-gradient(to left, hsl(var(--theme-bg2-hue), var(--theme-bg2-sat), calc(var(--theme-bg2-light) + 0% * var(--theme-bg2-shade-dir)), calc(82% * var(--bg-opacity, 1))), transparent var(--center-gap-offt), transparent var(--center-gap-offt)), linear-gradient(to right, color-mix(in srgb, var(--theme-base-color) calc(var(--bg-opacity, 1) * 100%), transparent), color-mix(in srgb, var(--theme-base-color) calc(var(--bg-opacity, 1) * 100%), transparent) var(--center-gap-offt), transparent var(--center-gap-offt), transparent var(--center-gap-right), color-mix(in srgb, var(--theme-base-color) calc(var(--bg-opacity, 1) * 100%), transparent) var(--center-gap-right), color-mix(in srgb, var(--theme-base-color) calc(var(--bg-opacity, 1) * 100%), transparent));
+  background-blend-mode: normal, normal, normal;
+}
+
+html:focus-within .logo img {
+  opacity: 0;
+  visibility: hidden;
+}
+html:focus-within .logo ms {
+  opacity: 1;
+  visibility: visible;
+}
+
+html:not(:focus-within) .logo img {
+  opacity: 1;
+  visibility: visible;
+}
+html:not(:focus-within) .logo ms {
+  opacity: 0;
+  visibility: hidden;
+}
+
+#content {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  overflow: hidden;
+  flex: 1 1 100%;
+  padding: 0.1em 0;
+}
+#content .logo {
+  position: relative;
+  height: 100%;
+  padding: 0.4em 0 0.4em 0.2em;
+  display: flex;
+  align-items: center;
+  min-width: 1.4em;
+  flex: 0 0 auto;
+}
+#content .logo img,
+#content .logo ms {
+  transition: opacity 400ms, visibility 400ms;
+  height: 100%;
+}
+#content .logo img {
+  --tilt: -20deg;
+  transform: rotate(var(--tilt));
+  animation: pournshake 5s;
+  animation-delay: 5s;
+  max-height: 1.8em;
+}
+#content .logo ms {
+  position: absolute;
+  top: 0;
+  left: 0.2em;
+  font-size: 1.2em;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  font-weight: 300;
+}
+
+.filler {
+  flex: 1 1;
+  height: 100%;
+}
+
+.fields {
+  padding: 0.2em 1em;
+  display: flex;
+  overflow: hidden;
+  flex: 0 0.1 auto;
+}
+.fields .field {
+  flex: 0 0 0;
+  margin-right: 1em;
+}
+.fields .center-gap {
+  box-sizing: content-box;
+  flex: 1 0 auto;
+  width: var(--center-gap-size);
+}
+
+header {
+  white-space: nowrap;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  font-weight: 500;
+}
+
+.controls {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  margin-right: 0.3em;
+}
+.controls .button {
+  display: flex;
+  align-items: center;
+  padding: 0.28em;
+  border-radius: 0.3em;
+  opacity: 1;
+  transition: opacity 200ms, background 200ms;
+}
+.controls .button.hidden {
+  display: none;
+}
+.controls .button:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+  text-decoration: none;
+}
+.controls .button:active {
+  background-color: rgba(0, 0, 0, 0.2);
+}
+.controls .button ms {
+  font-size: 1.4em;
+  font-weight: 200;
+}
+.controls .windows-auto-hidden-label {
+  font-variant: small-caps;
+  font-weight: 500;
+  font-size: 0.6em;
+  opacity: 0.86;
+  text-align: center;
+  margin-left: 0.15em;
+  margin-right: 0.1em;
+  line-height: 1;
+}

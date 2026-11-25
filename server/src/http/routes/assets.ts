@@ -20,7 +20,7 @@ const types = new Map([
   ['.html', 'text/html; charset=utf-8'],
 ]);
 
-function inside(root: string, path: string) {
+export function inside(root: string, path: string) {
   let target: string;
 
   try {

@@ -18,6 +18,9 @@ import { RecordsService } from '#src/services/records.service';
 import { webConnectionRoutes } from '#src/http/web-connections';
 import { webProfileRoutes } from '#src/http/web-profile';
 import { widgetApiRoutes } from '#src/http/routes/widget-api';
+import { overlayRoutes } from '#src/http/routes/overlay';
+import { widgetStaticRoutes } from '#src/http/routes/widget-pages';
+import { OverlayOptIn } from '#src/world/overlay-optin';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
 import type { Context, Next } from 'hono';
@@ -382,6 +385,10 @@ export function createWebApp(runtime: HttpRuntime) {
   webConnectionRoutes(app, runtime);
   webProfileRoutes(app, runtime);
   widgetApiRoutes(app, runtime);
+  // The Overlay opt-in of every rider, one store for the API route and the pages alike.
+  const overlayOptIn = new OverlayOptIn(runtime.config.storageDir);
+  overlayRoutes(app, runtime, overlayOptIn);
+  widgetStaticRoutes(app, runtime, overlayOptIn);
 
   appRoutes.get('/api/tls', (c) =>
     Effect.gen(function* () {
@@ -1162,6 +1169,7 @@ export function createWebApp(runtime: HttpRuntime) {
     '/activities/*',
     '/climbs',
     '/apps',
+    '/overlay',
     '/install',
     '/install/*',
     '/companion',

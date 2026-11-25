@@ -1,15 +1,21 @@
 import { t } from '#src/i18n/index';
 import { rpcError, value } from '#src/http/widget-api/rpc';
 import type { RpcHandlers } from '#src/http/widget-api/rpc';
+import { builtinWindows } from '#src/world/window-manifests';
 
 /** The calls every widget page makes that need nothing from the world: the app version, the refused
-`getJSON` proxy and the empty follower list. */
+`getJSON` proxy, the empty follower list and the windows the Overlay offers. */
 export function coreRpcs(): RpcHandlers {
   return {
     getFollowerAthletes: ({ c }) => {
       // Zluggish has no follower relation: nobody follows a viewer, so the page gets an empty list
       // without a read of the world.
       return c.json(value([]));
+    },
+
+    getWebWindowManifests: ({ c }) => {
+      // The windows the Overlay page of the web app lists: the same for every rider.
+      return c.json(value(builtinWindows()));
     },
 
     getVersion: ({ c }) => {

@@ -1,0 +1,57 @@
+@charset "UTF-8";
+/* themes-transparent.css
+ *
+ * Makes the "transparent-*" themes (transparent-dark, transparent-light)
+ * truly see-through: the themes.css already set --bg-opacity: 0 on <body>,
+ * but the widgets' panels, rows, headers, cards, bubbles and table cells
+ * still paint their own backgrounds, gradients, shadows and blurs.
+ *
+ * This file strips every background/shadow/backdrop-filter from all
+ * descendants of <body> (except images, svg, canvas, form controls,
+ * buttons and explicitly kept elements), adds a text-shadow so text stays
+ * readable on any desktop, and keeps a faint accent background on the
+ * ".watching" and ".self" rows so the watched rider remains visible.
+ *
+ * Scoped to html[data-theme=transparent-dark] and
+ * html[data-theme=transparent-light] ONLY — semi-transparent-dark keeps
+ * its tint and is intentionally not affected.
+ */
+/* a) Kill all painted backgrounds/shadows/blurs inside the window.
+ * :where() keeps specificity at that of the listed :not()s only,
+ * so page rules can still override where needed; !important is used
+ * because widget backgrounds are often themselves !important.
+ * Split into readable chunks — all share the same declaration block. */
+html[data-theme^=transparent-]:not(.settings-page):not(.settings-mode) :where(body, body *) :not(img):not(svg):not(svg *):not(canvas):not(input):not(select):not(textarea):not(button):not(option) :not(.keep-bg):not(.watching):not(.self) {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+}
+
+/* b) Legibility on any desktop: soft glow behind the text. */
+html[data-theme=transparent-dark] :is(body, body *) {
+  text-shadow: 0 0 2px #000, 0 0 6px rgba(0, 0, 0, 0.6666666667);
+}
+
+html[data-theme=transparent-light] :is(body, body *) {
+  text-shadow: 0 0 2px #fff, 0 0 6px rgba(255, 255, 255, 0.6666666667);
+}
+
+/* No glow on graphics (text-shadow inherits; reset it here). */
+html[data-theme^=transparent-] :where(img, svg, svg *, canvas) {
+  text-shadow: none;
+}
+
+/* c) transparent-light defaults to dark text; make it explicit. */
+html[data-theme=transparent-light] body {
+  color: #111;
+}
+
+/* d) Keep the watched/self rows visible with a faint accent tint. */
+html[data-theme^=transparent-] .watching:not(.settings-page) {
+  background: hsl(var(--theme-primary-hue, 20), var(--theme-primary-sat, 80%), 50%, 0.25) !important;
+}
+
+html[data-theme^=transparent-] .self:not(.settings-page) {
+  background: hsl(var(--theme-primary-hue, 20), var(--theme-primary-sat, 80%), 50%, 0.25) !important;
+}

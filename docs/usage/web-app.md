@@ -18,6 +18,7 @@ The Zluggish web app is the portal for managing the game, including installing t
 | Climbs       | See the climb portals you have ridden and your best times.                                                                     |
 | Integrations | Set up [activity uploads and workout imports](integrations/index.md).                                                          |
 | Settings     | Toggle ghosts and regenerate power curves.                                                                                     |
+| Overlay      | Turn on the [Overlay](overlay.md) and open its live widget windows.                                                            |
 | Apps         | Set up Zwift for Windows, macOS, Linux or Android, or [install Companion on Android](../install/clients/companion-android.md). |
 
 ## Administrator pages

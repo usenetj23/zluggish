@@ -3,7 +3,9 @@ import type { WidgetNearbyRecord } from '#src/dtos/widget-api.dto';
 import type { WidgetView } from '#src/http/widget-view';
 import { athleteRecord } from '#src/http/widget-view';
 import { mountEventSocket } from '#src/http/widget-api/socket';
+import type { ChannelFactory } from '#src/http/widget-api/channels';
 import { powerZones } from '#src/world/power-zones';
+import { chatRpcs } from '#src/http/widget-api/chat';
 import { coreRpcs } from '#src/http/widget-api/core';
 import type { WebEnv } from '#src/http/web-app';
 import type { RpcHandlers, RpcCall } from '#src/http/widget-api/rpc';
@@ -66,8 +68,29 @@ async function v1Arguments(c: Context<WebEnv>): Promise<Array<unknown>> {
   return Option.match(decodeArguments(body), { onNone: () => [], onSome: (args) => [...args] });
 }
 
+/** `streams/<athlete>`: the per-second samples of a ride. This part of the server keeps no such
+history, so a subscription is acknowledged and never answered, exactly like `getAthleteStreams` hands
+over empty streams. The fallback of the socket would send `[]`, which the Watching chart reads as a
+batch of samples and fails on. */
+const quietStreams: ChannelFactory = () => ({
+  handles: (event) => event.startsWith('streams/'),
+  quiet: () => true,
+  polled: () => false,
+  subscribe: () => {},
+  dispose: () => {},
+});
+
+/** The streams of the Watching line chart (`lineChartFields` of `watching.mjs`) and their time axis. */
+const streamNames = ['time', 'power', 'hr', 'speed', 'cadence', 'draft', 'wbal'];
+
 function answered(name: string, args: Array<unknown>, view: WidgetView) {
   switch (name) {
+    case 'getAthleteStreams': {
+      // This part of the server keeps no per-second history of a ride, so every stream is empty: the
+      // Watching line chart reads one array per field and appends to it, so each is there, with no
+      // sample in it. The analysis part answers it for real.
+      return value(Object.fromEntries(streamNames.map((name) => [name, []])));
+    }
     case 'getGameConnectionStatus': {
       return value({ connected: true });
     }
@@ -139,8 +162,8 @@ function answered(name: string, args: Array<unknown>, view: WidgetView) {
 export function mountWidgetApi(app: Hono<WebEnv>, deps: WidgetDeps): void {
   // The RPCs answered by a handler of their own; any other name is answered from the view (see
   // `answered`) or refused as not implemented.
-  const handlers: RpcHandlers = { ...coreRpcs() };
-  mountEventSocket(app, deps);
+  const handlers: RpcHandlers = { ...coreRpcs(), ...chatRpcs(deps) };
+  mountEventSocket(app, deps, [quietStreams]);
 
   app.use('/api/rpc/*', async (c: Context<WebEnv>, next: Next) => {
     if (deps.viewer(c) === null) {

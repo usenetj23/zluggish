@@ -107,6 +107,7 @@ const depsOf = (logged: Array<string>, overrides: Partial<WidgetDeps> = {}, talk
       dispose();
     };
   },
+  chatHistory: (viewerId) => talk.log.history(viewerId, 100),
   pushIntervalMs: 40,
   log: (event, message) => {
     logged.push(`${event} ${message}`);
@@ -385,6 +386,30 @@ await test(
     }
   },
 );
+
+await test('getAthleteStreams answers every stream of the Watching chart empty, since no ride history is kept', async () => {
+  const response = await get(depsOf([]), `/api/rpc/v2/getAthleteStreams/${arg('self')}`);
+
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    success: true,
+    value: { time: [], power: [], hr: [], speed: [], cadence: [], draft: [], wbal: [] },
+  });
+});
+
+await test('getChatHistory answers the public messages and the own direct ones, never those of others', async () => {
+  const talk = chatter();
+
+  talk.log.record(chatMessage({ from: 2, to: 0, message: 'to everybody' }));
+  talk.log.record(chatMessage({ from: 2, to: 1, message: 'to the viewer' }));
+  talk.log.record(chatMessage({ from: 2, to: 3, message: 'to somebody else' }));
+
+  const response = await get(depsOf([], {}, talk), '/api/rpc/v2/getChatHistory');
+  const payload = await answerOf(response, Schema.Array(Schema.Struct({ message: Schema.String })));
+
+  assert.equal(payload.success, true);
+  assert.deepEqual(payload.value?.map((x) => x.message).toSorted(), ['to everybody', 'to the viewer']);
+});
 
 await test('a v1 body that is not an array carries no arguments instead of failing', { timeout: 10_000 }, async () => {
   const deps = depsOf([]);

@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<!-- Modified for Zluggish: the inline module script moved to src/boot-groups-settings.mjs because the server's Content-Security-Policy forbids inline scripts. Upstream: SauceLLC/sauce4zwift 6de4254a454d376e8bfce02c3a098274a7723711 (GPL-3.0). -->
+<html class="settings-page" tabindex="0" data-settings-key="groups-settings-v6">
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+        <meta name="apple-mobile-web-app-capable" content="yes"/>
+        <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';"/>
+
+        <title>Groups - Settings - Zluggish Overlay</title>
+
+        <script src="./src/preloads.js"></script>
+
+        <link id="favicon" rel="shortcut icon" href="images/favicon.png"/>
+        <link rel="stylesheet" href="css/common.css"/>
+
+        <script type="module" src="./src/boot-groups-settings.mjs"></script>
+    </head>
+    <body>
+        <div id="titlebar">
+            <header>
+                <div class="logo"><img src="images/icon128.png"/></div>
+                <div class="title">Groups - Settings</div>
+                <div class="filler"></div>
+                <div class="buttons">
+                    <div title="Close this window" class="button close electron-only"><ms>close</ms></div>
+                </div>
+            </header>
+        </div>
+        <div id="settings">
+            <form class="section">
+                <label>
+                    <key>Refresh interval:</key>
+                    <input type="number" min="0" step="1" name="refreshInterval"/> <small>(seconds)</small>
+                </label>
+                <label title="When powerful surges are detected attention will be drawn to the group or athlete">
+                    <key>Detect attacks:</key>
+                    <input type="checkbox" name="detectAttacks"/>
+                </label>
+                <label>
+                    <key data-added="2023-03-31">Horizontal mode:</key>
+                    <input type="checkbox" name="horizMode"/>
+                </label>
+                <label class="indent">
+                    <key data-added="2024-12-04">Left-to-Right:</key>
+                    <input data-depends-on="horizMode" type="checkbox" name="horizLTR"/>
+                </label>
+                <label class="indent">
+                    <key data-added="2023-03-31">Label angle:</key>
+                    <input type="range" name="labelAngle" min="0" max="90" value="50" step="1"
+                           data-depends-on="horizMode"/>
+                    <input type="number" name="labelAngle" value="60" style="--size: 5"
+                           data-depends-on="horizMode"/> degrees
+                </label>
+                <label title="Hide the top header containing overall information">
+                    <key data-added="2023-03-31">Hide header:</key>
+                    <input type="checkbox" name="hideHeader"/>
+                </label>
+                <label title="Lower CPU/GPU usage by reducing animation smoothness">
+                    <key data-added="2025-10-30">Reduce Overhead:</key>
+                    <input type="checkbox" name="reduceOverhead"/>
+                </label>
+
+                <hr/>
+                <div class="title">Groups View</div>
+
+                <label>
+                    <key>Groups ahead:</key>
+                    <input type="number" min="1" max="10" step="1" name="maxAhead"/>
+                </label>
+                <label>
+                    <key>Groups behind:</key>
+                    <input type="number" min="1" max="10" step="1" name="maxBehind"/>
+                </label>
+                <label>
+                    <key>Top groups field:</key>
+                    <select name="groupsPrimaryField">
+                        <option value="power">Power</option>
+                        <option value="wkg">W/kg</option>
+                    </select>
+                </label>
+                <label>
+                    <key>Bottom groups field:</key>
+                    <select name="groupsSecondaryField">
+                        <option value="speed">Speed</option>
+                        <option value="draft">Draft</option>
+                        <option value="heartrate">Heart Rate</option>
+                        <option value="power-highest">Highest Power</option>
+                        <option value="power-median">Median Power</option>
+                    </select>
+                </label>
+
+                <hr/>
+                <div class="title">Zoomed View</div>
+
+                <label title="The maximum number of athletes to show while zoomed in">
+                    <key data-added="2023-03-31">Max athletes:</key>
+                    <input type="number" min="1" step="1" name="maxZoomed"/>
+                </label>
+
+                <label title="Athletes further from you get smaller circles">
+                    <key>Shrink with distance:</key>
+                    <input type="checkbox" name="shrinkWithDistance"/>
+                </label>
+
+                <label>
+                    <key data-added="2025-09-19">Zoom Priority:</key>
+                    <select name="zoomPriority">
+                        <option title="Use group identifiers or athlete identifiers for the focus criteria"
+                                value="identity">Identity</option>
+                        <option title="Classic default method where the group position is used for the focus critiera"
+                                value="position">Position</option>
+                    </select>
+                </label>
+
+                <label>
+                    <key>Top zoomed field:</key>
+                    <select name="zoomedPrimaryField">
+                        <option value="power">Power</option>
+                        <option value="wkg">W/kg</option>
+                    </select>
+                </label>
+                <label>
+                    <key>Bottom zoomed field:</key>
+                    <select name="zoomedSecondaryField">
+                        <option value="speed">Speed</option>
+                        <option value="draft">Draft</option>
+                        <option value="heartrate">Heart Rate</option>
+                        <option value="power-60s">1m Power</option>
+                    </select>
+                </label>
+                <label>
+                    <key>Zoomed gap metric:</key>
+                    <select name="zoomedGapField">
+                        <option value="time">Time</option>
+                        <option value="distance">Distance</option>
+                    </select>
+                </label>
+
+                <hr/>
+
+                <label>
+                    <key>Theme override:</key>
+                    <select is="sauce-theme" override></select>
+                </label>
+                <label title="Mostly useful for streamers using OBS window and browser sources">
+                    <key>Solid background:</key>
+                    <input type="checkbox" name="solidBackground"/>
+                </label>
+                <label>
+                    <key>Background color:</key>
+                    <input type="color" title="Pick the colour" name="backgroundColor" data-depends-on="solidBackground"/>
+                    <input type="text" title="The same colour as text: #rrggbb, rgb(...) or a name such as black" name="backgroundColor" data-depends-on="solidBackground" size="7"/>
+                    <input type="number" title="Opacity of this colour, 0 (invisible) to 100 (solid)" name="backgroundAlpha" data-depends-on="solidBackground"
+                           style="--size: 7" min="0" max="100" step="1" value="100"/> <small>% opaque</small>
+                </label>
+            </form>
+        </div>
+    </body>
+</html>

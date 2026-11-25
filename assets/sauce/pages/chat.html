@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<!-- Modified for Zluggish: the inline module script moved to src/boot-chat.mjs because the server's Content-Security-Policy forbids inline scripts. Upstream: SauceLLC/sauce4zwift 6de4254a454d376e8bfce02c3a098274a7723711 (GPL-3.0). -->
+<html class="passive-overlay-scrollbars" tabindex="0" data-settings-key="chat-settings-v2">
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+        <meta name="apple-mobile-web-app-capable" content="yes"/>
+        <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-inline';"/>
+
+        <title>Chat - Zluggish Overlay</title>
+
+        <script src="./src/preloads.js"></script>
+
+        <link rel="manifest" href="chat-manifest.json"/>
+        <link id="favicon" rel="shortcut icon" href="images/favicon.png"/>
+        <link rel="stylesheet" href="css/common.css"/>
+        <link rel="stylesheet" href="css/chat.css"/>
+
+        <script type="module" src="./src/boot-chat.mjs"></script>
+    </head>
+    <body class="transparent-bg">
+        <div id="titlebar">
+            <header>
+                <div class="logo"><img src="images/icon128.png"/></div>
+                <div class="title">Chat</div>
+                <div class="filler"></div>
+                <div class="buttons">
+                    <div title="Direct Message" class="button dm only-game-connection"><ms large>communication</ms></div>
+                    <a class="button open-settings" href="chat-settings.html?width=420&height=400&child-window"
+                       title="Open settings window" target="chat-settings"><ms>settings</ms></a>
+                    <div title="Minimize" class="button minimize electron-only"><ms>minimize</ms></div>
+                    <div title="Close this window" class="button close electron-only"><ms>close</ms></div>
+                </div>
+            </header>
+        </div>
+        <div id="content"></div>
+        <div id="send-message" class="only-game-connection">
+            <div class="dm-selection">
+                <div class="avatar">
+                    <img src="images/blankavatar.png"/>
+                </div>
+                <ms class="cancel">close</ms>
+            </div>
+            <input type="text" minlength="1" required placeholder="Send Message..." name="message"/>
+            <ms id="send-icon">send</ms>
+        </div>
+
+        <dialog id="direct-message-picker" closedby="any">
+            <header>
+                <div class="title">Direct Message</div>
+                <div class="button close"><ms>close</ms></div>
+            </header>
+            <main></main>
+        </dialog>
+
+        <div id="hintbar">
+            <div class="hint"></div>
+        </div>
+    </body>
+</html>

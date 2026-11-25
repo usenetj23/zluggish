@@ -21,6 +21,9 @@ export interface WidgetDeps {
   /** delivers every chat message the viewer may see; the returned disposer stops the listener. */
   listenChat: (viewerId: number, listener: (message: ChatMessage) => void) => () => void;
 
+  /** the chat messages of the world the viewer is allowed to read, newest first. */
+  chatHistory: (viewerId: number) => Array<ChatMessage>;
+
   /** how often the push loop of the event socket repeats the live events. */
   pushIntervalMs: number;
 

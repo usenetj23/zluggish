@@ -563,5 +563,10 @@
     "file": "server/src/http/widget-api/socket.ts",
     "value": "A widget hit the subscription limit",
     "reason": "Server log message; log messages are not translated."
+  },
+  {
+    "file": "server/src/http/routes/widget-pages.ts",
+    "value": "public, max-age=3600",
+    "reason": "Protocol, generated script syntax, or external format identifier; must remain literal."
   }
 ]
