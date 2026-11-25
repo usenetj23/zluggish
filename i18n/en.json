@@ -615,6 +615,8 @@
   "intervals_icu": "Intervals.icu",
   "intervals_icu_download_failed": "Intervals.icu download failed",
   "intervals_icu_sync_failed": "Intervals.icu sync failed",
+  "intervals_upload_activities": "Upload completed activities",
+  "intervals_upload_saved": "Upload setting saved.",
   "invalid_action": "Invalid action.",
   "invalid_aes_key_length": "Invalid AES key length",
   "invalid_athlete_id": "Invalid athlete ID",

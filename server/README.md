@@ -132,6 +132,7 @@ The available keys are:
 | Key                                   | JSON value                             |
 | ------------------------------------- | -------------------------------------- |
 | `ghosts.enabled`                      | `true` or `false`                      |
+| `uploads.intervals.enabled`           | `true` or `false`                      |
 | `uploads.zwift.enabled`               | `true` or `false`                      |
 | `uploads.strava.method`               | `"paid"` or `"free"`                   |
 | `devices.zwiftClick.enabled`          | `true` or `false`                      |
