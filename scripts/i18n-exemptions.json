@@ -483,5 +483,85 @@
     "file": "server/src/repositories/app-release.repository.ts",
     "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "reason": "HTTP Accept header for release downloads."
+  },
+  {
+    "file": "server/src/world/power-zones.ts",
+    "value": "Active Recovery",
+    "reason": "Power zone names as the widget pages of Sauce for Zwift read them; part of the widget API."
+  },
+  {
+    "file": "server/src/world/power-zones.ts",
+    "value": "Endurance",
+    "reason": "Power zone names as the widget pages of Sauce for Zwift read them; part of the widget API."
+  },
+  {
+    "file": "server/src/world/power-zones.ts",
+    "value": "Tempo",
+    "reason": "Power zone names as the widget pages of Sauce for Zwift read them; part of the widget API."
+  },
+  {
+    "file": "server/src/world/power-zones.ts",
+    "value": "Threshold",
+    "reason": "Power zone names as the widget pages of Sauce for Zwift read them; part of the widget API."
+  },
+  {
+    "file": "server/src/world/power-zones.ts",
+    "value": "VO2 Max",
+    "reason": "Power zone names as the widget pages of Sauce for Zwift read them; part of the widget API."
+  },
+  {
+    "file": "server/src/world/power-zones.ts",
+    "value": "Anaerobic",
+    "reason": "Power zone names as the widget pages of Sauce for Zwift read them; part of the widget API."
+  },
+  {
+    "file": "server/src/world/power-zones.ts",
+    "value": "Neuromuscular",
+    "reason": "Power zone names as the widget pages of Sauce for Zwift read them; part of the widget API."
+  },
+  {
+    "file": "server/src/world/power-zones.ts",
+    "value": "Low Intensity",
+    "reason": "Power zone names as the widget pages of Sauce for Zwift read them; part of the widget API."
+  },
+  {
+    "file": "server/src/world/power-zones.ts",
+    "value": "Moderate Intensity",
+    "reason": "Power zone names as the widget pages of Sauce for Zwift read them; part of the widget API."
+  },
+  {
+    "file": "server/src/world/power-zones.ts",
+    "value": "High Intensity",
+    "reason": "Power zone names as the widget pages of Sauce for Zwift read them; part of the widget API."
+  },
+  {
+    "file": "server/src/world/power-zones.ts",
+    "value": "Sweet Spot",
+    "reason": "Power zone names as the widget pages of Sauce for Zwift read them; part of the widget API."
+  },
+  {
+    "file": "server/src/http/widget-records.ts",
+    "value": "ProCyclingStats",
+    "reason": "Stable service identity in API metadata."
+  },
+  {
+    "file": "server/src/world/bot-profiles.ts",
+    "value": "Kosovo",
+    "reason": "Fallback for the English region name Intl.DisplayNames gives; the other countries come from it."
+  },
+  {
+    "file": "server/src/http/widget-api/socket.ts",
+    "value": "signed out",
+    "reason": "WebSocket close reason for the widget client; never shown to the rider."
+  },
+  {
+    "file": "server/src/http/widget-api/socket.ts",
+    "value": "push failed",
+    "reason": "WebSocket close reason for the widget client; never shown to the rider."
+  },
+  {
+    "file": "server/src/http/widget-api/socket.ts",
+    "value": "A widget hit the subscription limit",
+    "reason": "Server log message; log messages are not translated."
   }
 ]

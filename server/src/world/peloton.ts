@@ -8,6 +8,15 @@ import type { RiderPool } from '#src/world/riders';
 
 const rank = (preference: string) => (preference === 'front' ? 0 : preference === 'back' ? 2 : 1);
 
+/** Lowest id a bot rider can carry; bot ids run `botIdBase + index * 1000 + i` and stay below 9 000 000. */
+export const botIdBase = 8_000_001;
+
+/** True exactly for the ids the peloton hands to bot riders; real riders keep small ids. */
+export function isBotId(id: number | bigint): boolean {
+  const n = Number(id);
+  return n >= botIdBase && n < 9_000_000;
+}
+
 export interface ReplayRider {
   profile: PlayerProfile;
   recording: Recording;
@@ -113,7 +122,7 @@ export class Peloton {
 
     for (let i = 0; i < count; i++) {
       const spec = config.riders[i] ?? {};
-      const profile = pool.profile(BigInt(8_000_001 + index * 1000 + i), spec);
+      const profile = pool.profile(BigInt(botIdBase + index * 1000 + i), spec);
       profile.weightInGrams = Math.round(
         (spec.weight ?? this.rng.between(profile.isMale ? 64 : 52, profile.isMale ? 84 : 68)) * 1000,
       );

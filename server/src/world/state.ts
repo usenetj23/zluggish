@@ -1,10 +1,16 @@
 import { t } from '#src/i18n/index';
 import type { PlayerState, ServerToClient, WorldAttribute } from '#src/protocol/generated/udp-node-msgs_pb';
-import { PlayerStateSchema, ServerToClientSchema } from '#src/protocol/generated/udp-node-msgs_pb';
+import { PlayerStateSchema, ServerToClientSchema, WA_TYPE } from '#src/protocol/generated/udp-node-msgs_pb';
+import { SocialPlayerActionSchema, SocialPlayerActionType } from '#src/protocol/generated/tcp-node-msgs_pb';
+import { ChatLog } from '#src/world/chat-log';
+import { draftWatts, minDraftSpeed, nearestAhead } from '#src/world/draft';
 import { Lifecycle } from '#src/world/lifecycle';
+import type { RiderPoint } from '#src/world/relations';
 import type { Simulation } from '#src/world/simulation';
+import { RideOnCounter } from '#src/world/ride-on-count';
+import { RideStats } from '#src/world/ride-stats';
 import { StateHistory } from '#src/world/state-history';
-import { clone, create, toBinary } from '@bufbuild/protobuf';
+import { clone, create, fromBinary, toBinary } from '@bufbuild/protobuf';
 
 /** Zwift world time counts milliseconds from this Unix time. */
 export const WORLD_TIME_EPOCH_MS = 1_414_016_075_000;
@@ -25,12 +31,35 @@ export function forward(state: PlayerState) {
   return (state.f19 & 4) !== 0;
 }
 
+/** The speed the packet carries is millimetres per hour; the arithmetic here wants km/h. */
+export const millimetresPerHourToKmPerHour = 1_000_000;
+
+/** One rider packet as the neighbourhood arithmetic wants it, in the units the arithmetic expects. */
+export function riderPoint(state: PlayerState): RiderPoint {
+  return {
+    id: Number(state.id),
+    course: course(state),
+    road: road(state),
+    forward: forward(state),
+    roadTime: state.roadTime,
+    route: state.route,
+    distance: state.distance,
+    x: state.x,
+    y: state.yAltitude,
+    z: state.z,
+    speed: state.speed / millimetresPerHourToKmPerHour,
+    power: state.power,
+    heartrate: state.heartrate,
+  };
+}
+
 /** Durable per-key nonce history. A connection identifier is never reused for TCP. */
 export interface RelayHistory {
   tcp: Array<number>;
   udp: Array<[number, number, number]>;
 }
 
+/** Per authenticated relay; only accepted packets advance counters. Never an anti-replay policy. */
 export class Relay {
   tcpConnection = 0;
 
@@ -176,6 +205,14 @@ export class World {
 
   readonly histories = new Map<bigint, StateHistory>();
 
+  /** The chat log of the world, fed by every text message the game sends. */
+  readonly chat = new ChatLog();
+
+  readonly rideStats = new RideStats();
+
+  /** Ride Ons each rider has been sent, counted here as they are queued to their recipients. */
+  readonly rideOns = new RideOnCounter();
+
   private readonly generations = new Map<bigint, number>();
 
   /** Each login and logout starts a new session generation; stale loads compare it. */
@@ -203,6 +240,7 @@ export class World {
 
     this.relays.set(playerId, relay);
     this.histories.delete(playerId);
+    this.rideStats.forget(playerId);
     this.advance(playerId);
     this.sessions?.login(playerId);
 
@@ -213,6 +251,7 @@ export class World {
     this.disconnect?.(playerId);
     this.advance(playerId);
     this.sessions?.logout(playerId, reason);
+
     this.lifecycle.end(playerId, reason);
     this.simulation?.logout(playerId);
     const wasOnline = this.online.delete(playerId);
@@ -244,6 +283,8 @@ export class World {
     const snapshot = clone(PlayerStateSchema, state);
     snapshot.id = playerId;
     this.online.set(playerId, snapshot);
+    const draft = this.draftOf(snapshot);
+    this.rideStats.receive(playerId, snapshot, draft);
     this.lifecycle.receive(playerId, snapshot.distance, course(snapshot), BigInt(snapshot.route), snapshot.sport);
 
     if (!previous) {
@@ -259,9 +300,77 @@ export class World {
     this.histories.set(playerId, history);
   }
 
+  /**
+  The estimated watts the rider saves behind the nearest rider in front (see `draft.ts`); 0 when the
+  rider is too slow or pushes no power, and no allocations happen in that case. Otherwise it allocates
+  a `RiderPoint` only for riders on the same course as the rider; peers on other courses are skipped
+  before any point is built, because `relate()` rejects them anyway.
+  */
+  private draftOf(snapshot: PlayerState): number {
+    const speedKmh = snapshot.speed / millimetresPerHourToKmPerHour;
+
+    if (speedKmh < minDraftSpeed || snapshot.power <= 0) {
+      return 0;
+    }
+
+    const here = course(snapshot);
+    const point = riderPoint(snapshot);
+    const others: Array<RiderPoint> = [];
+
+    for (const [id, peer] of this.online) {
+      if (id !== snapshot.id && fresh(peer) && course(peer) === here) {
+        others.push(riderPoint(peer));
+      }
+    }
+
+    for (const peer of this.synthetic.values()) {
+      if (course(peer) === here) {
+        others.push(riderPoint(peer));
+      }
+    }
+
+    return draftWatts(snapshot.power, speedKmh, nearestAhead(point, others));
+  }
+
   // Queue admission is bounded; the TCP owner takes/deletes a batch before sending.
   // nearby separately checkpoints each peer timestamp, suppressing unchanged snapshots.
-  enqueue(update: WorldAttribute, recipients: Array<bigint> = this.online.keys().toArray()) {
+  // `speaker` names the real author when it differs from the action's `playerId`, which bot chat
+  // messages always carry as 0 on the wire: the chat log then records the bot's id.
+  enqueue(update: WorldAttribute, recipients: Array<bigint> = this.online.keys().toArray(), speaker?: bigint) {
+    // The chat log is fed whether or not a voice service watches: decoding is the log's own business.
+    if (update.waType === WA_TYPE.WAT_SPA) {
+      try {
+        const action = fromBinary(SocialPlayerActionSchema, update.payload);
+
+        if (action.spaType === SocialPlayerActionType.SOCIAL_TEXT_MESSAGE) {
+          const from = speaker ?? action.playerId;
+          // `avatar` stays empty on purpose: the game's avatar is a URL on an outside server, which
+          // the viewer's browser would then load, leaking their address and breaking our CSP.
+          this.chat.record({
+            from: Number(from),
+            to: Number(action.toPlayerId),
+            message: action.message,
+            ts: Date.now(),
+            firstName: action.firstName,
+            lastName: action.lastName,
+            avatar: '',
+            team: null,
+            muted: false,
+          });
+        }
+      } catch {
+        /* Not a chat bubble. */
+      }
+    }
+
+    // A Ride On is counted for every recipient it is queued to: this is where the game really hands
+    // one to a rider, whether it came from the web handler in `routes/social.ts` or the Sauce RPC.
+    if (update.waType === WA_TYPE.WAT_RIDE_ON) {
+      for (const id of recipients) {
+        this.rideOns.add(Number(id));
+      }
+    }
+
     for (const id of recipients) {
       const queue = this.updates.get(id) ?? [];
 

@@ -18,6 +18,9 @@ import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { Effect, Schema, Scope } from 'effect';
+import type { WebSocketServerLike } from '@hono/node-server';
+import { WebSocketServer } from 'ws';
+import { terminateClients } from '#src/http/terminate-clients';
 
 const { values } = parseArgs({
   options: { config: { type: 'string' }, 'storage-dir': { type: 'string' } },
@@ -58,6 +61,14 @@ const gameInfoHash = Schema.decodeUnknownSync(Schema.Struct({ gameInfoHash: Sche
 ).gameInfoHash;
 
 const variants = readFileSync(resolve(assets, 'data/variants.txt'), 'utf8');
+
+/** The `ws` server as the WebSocket server `@hono/node-server` takes over the upgrades with. */
+function upgradesOf(server: WebSocketServer): WebSocketServerLike {
+  // `ws` types `options.noServer` as `boolean | undefined`, while `@hono/node-server` under
+  // `exactOptionalPropertyTypes` wants `noServer?: boolean`: the shapes match at run time only.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
+  return server as WebSocketServerLike;
+}
 
 /** Close an HTTP listener; one that never started counts as closed. */
 function closeHttp(listener: ReturnType<typeof startHttp>) {
@@ -134,6 +145,10 @@ const serve = Effect.fn('server.start')(function* () {
     ? owner.runtime.effects.runSync(ManagementService.use((management) => management.issueSetupKey()))
     : null;
 
+  // The event sockets of the web app. Subscription frames are tiny: the 100 MB frame limit `ws` defaults
+  // to would let a single signed-in rider eat the memory of the whole server with one oversized frame.
+  const webSockets = new WebSocketServer({ noServer: true, maxPayload: 65_536 });
+
   const web = webConfig.enabled
     ? yield* listening(
         () =>
@@ -142,8 +157,15 @@ const serve = Effect.fn('server.start')(function* () {
             port: webConfig.port,
             // Allow large Android bundles on slower connections.
             requestTimeout: 2 * 60 * 60 * 1000,
+            websocket: { server: upgradesOf(webSockets) },
           }),
-        closeHttp,
+        (listener) => {
+          // An upgraded WebSocket stays open until the client leaves, so `listener.close()` alone would
+          // hang with a browser tab open: the event sockets are dropped first.
+          terminateClients(webSockets);
+
+          return closeHttp(listener);
+        },
       )
     : null;
 
