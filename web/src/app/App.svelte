@@ -107,6 +107,7 @@
   let regenerateButton = $state<HTMLButtonElement>();
   let ghosts = $state(false);
   let stravaMethod = $state('paid');
+  let intervalsUpload = $state(true);
   let bridgeFolder = $state('');
 
   let search = $state('');
@@ -460,6 +461,7 @@
     return {
       ghosts: Boolean(body.overrides['ghosts.enabled'] ?? body.defaults.ghosts.enabled),
       stravaMethod: String(body.overrides['uploads.strava.method'] ?? body.defaults.uploads.strava.method),
+      intervalsUpload: Boolean(body.overrides['uploads.intervals.enabled'] ?? body.defaults.uploads.intervals.enabled),
       bridgeFolder: String(
         body.overrides['workouts.trainingpeaks.bridgeFolder'] ?? body.defaults.workouts.trainingpeaks.bridgeFolder,
       ),
@@ -467,7 +469,7 @@
   }
 
   function applySettings(body: UserSettings) {
-    ({ ghosts, stravaMethod, bridgeFolder } = preferences(body));
+    ({ ghosts, stravaMethod, intervalsUpload, bridgeFolder } = preferences(body));
   }
 
   async function saveSettings() {
@@ -586,6 +588,7 @@
         ...current.overrides,
         'ghosts.enabled': ghosts,
         'uploads.strava.method': stravaMethod,
+        'uploads.intervals.enabled': intervalsUpload,
         'workouts.trainingpeaks.bridgeFolder': bridgeFolder,
       },
     };
@@ -1726,7 +1729,14 @@
         {/if}
       {:else if path === '/integrations'}
         {#if settings}
-          <Connections {api} bind:stravaMethod bind:bridgeFolder saved={preferences(settings)} save={saveSettings} />
+          <Connections
+            {api}
+            bind:stravaMethod
+            bind:intervalsUpload
+            bind:bridgeFolder
+            saved={preferences(settings)}
+            save={saveSettings}
+          />
         {/if}
       {:else}
         <form
