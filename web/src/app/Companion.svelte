@@ -1,8 +1,11 @@
 <script lang="ts">
+  import { t } from '../lib/i18n/index';
+  import SlowLoading from '../components/SlowLoading.svelte';
   import type { z } from 'zod';
   import { onMount } from 'svelte';
   import type { CompanionStatus } from './companion';
   import { companionStatus, megabytes } from './companion';
+  import { detect } from './device';
 
   let {
     api,
@@ -11,8 +14,8 @@
     administrator,
   }: {
     api: <Schema extends z.ZodType>(schema: Schema, url: string) => Promise<z.output<Schema>>;
-    /** `/companion` offers the choice, or opens this phone's own system; `/companion/choose` always offers it;
-    `/companion/android` and `/companion/ios` open that system. */
+    /** `/companion` opens this phone's own system; `/companion/android` and `/companion/ios` open that system. Any
+    other path is the Apps page's to show. */
     path: string;
     navigate: (path: string) => Promise<void>;
     administrator: boolean;
@@ -20,21 +23,16 @@
 
   type Platform = 'android' | 'ios';
 
-  /** iPadOS reports itself as a Mac with a touch screen. */
-  function detect(): Platform | null {
-    const agent = navigator.userAgent;
-
-    if (/iPhone|iPad|iPod/.test(agent) || (/Macintosh/.test(agent) && navigator.maxTouchPoints > 1)) {
-      return 'ios';
-    }
-
-    return /Android/.test(agent) ? 'android' : null;
-  }
-
   const here = detect();
 
   const platform = $derived<Platform | null>(
-    path === '/companion/android' ? 'android' : path === '/companion/ios' ? 'ios' : path === '/companion' ? here : null,
+    path === '/companion/android'
+      ? 'android'
+      : path === '/companion/ios'
+        ? 'ios'
+        : path === '/companion' && (here === 'android' || here === 'ios')
+          ? here
+          : null,
   );
 
   let status = $state<CompanionStatus | null>(null);
@@ -67,146 +65,93 @@
     try {
       status = await api(companionStatus, '/api/companion');
     } catch (error) {
-      failure = error instanceof Error ? error.message : 'The Companion app could not be loaded.';
+      failure = error instanceof Error ? error.message : t('companion_load_error');
     }
   });
 </script>
 
-{#snippet card(id: Platform, name: string, detail: string, unavailable = false)}
-  <button type="button" class="system" class:unavailable onclick={() => navigate(`/companion/${id}`)}>
-    <span class="name">{name}</span>
-    <span class="detail">{detail}</span>
-    {#if id === here}<span class="here">This phone</span>{/if}
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6" /></svg>
-  </button>
-{/snippet}
-
-{#snippet switcher(name: string)}
-  <p class="switch">
-    {name}.
-    <a href="/companion/choose" onclick={(event) => go(event, '/companion/choose')}>Choose another phone</a>
-  </p>
-{/snippet}
-
 {#snippet manageLink()}
-  <a href="/manage/companion" onclick={(event) => go(event, '/manage/companion')}>Manage → Companion</a>
+  <a href="/manage/companion" onclick={(event) => go(event, '/manage/companion')}>{t('manage_companion')}</a>
 {/snippet}
 
 {#if failure}<p class="notice failed" role="alert">{failure}</p>{/if}
 
 {#if status === null}
-  {#if !failure}<p role="status">Loading…</p>{/if}
+  {#if !failure}<SlowLoading />{/if}
 {:else if platform === 'ios'}
   <section class="panel" aria-labelledby="companion-ios">
-    {@render switcher('iPhone and iPad')}
-    <h2 id="companion-ios">Companion on iPhone and iPad cannot use this server</h2>
-    <p class="lead">
-      Companion connects only to servers it trusts. On Android this server hands out a copy of the app that trusts it.
-      Apple does not allow that on iOS:
-    </p>
-    <ul class="reasons">
-      <li>
-        <strong>App Store apps are locked.</strong> Each copy is encrypted for the Apple ID that downloaded it, so it cannot
-        be changed to trust another server.
-      </li>
-      <li>
-        <strong>iOS runs only apps that Apple signed.</strong> Installing a changed app takes an Apple developer account,
-        and the free kind makes you reinstall it every 7 days.
-      </li>
-      <li>
-        <strong>An added certificate is not enough.</strong> iOS fully trusts only certificates that can vouch for other
-        sites. This server's certificate deliberately cannot, so it is never a risk to the rest of your phone.
-      </li>
-    </ul>
-    <p class="hint">Use Companion on an Android phone or tablet instead. Zwift itself rides fine from a computer.</p>
+    <h2 id="companion-ios">{t('companion_ios_unsupported')}</h2>
+    <p class="lead">{t('companion_ios_description')}</p>
   </section>
 {:else if platform === 'android'}
-  <section class="panel" aria-label="Android setup steps">
-    {@render switcher('Setting up Android')}
-
+  <section class="panel" aria-label={t('android_setup_steps')}>
     {#if status.app && !status.app.current}
       <p class="stale" role="status">
-        The server certificate changed after this app was made, so it cannot connect yet.
-        {#if administrator}Upload the app again under {@render manageLink()}.{:else}Ask the server administrator to
-          update it.{/if}
+        {t('companion_app_stale_certificate_warning')}
+        {#if administrator}{t('update_it_under')} {@render manageLink()}.{:else}{t('companion_app_update_hint')}{/if}
       </p>
     {/if}
 
     <ol class="walk">
       <li>
-        <h2>Remove the Play Store version</h2>
-        <p>
-          Android updates an app only with one signed by the same key. If Zwift Companion came from the Play Store or
-          another site, uninstall it first.
-        </p>
-        <p class="hint">Skip this when you update an app you installed from this page.</p>
-      </li>
-      <li>
-        <h2>Download the app</h2>
+        <h2>{t('download_companion_for_zluggish')}</h2>
         {#if status.app}
-          <p>Open this page on the phone, then download Companion patched for this server.</p>
+          <p>
+            {t('companion_app_coexistence')}
+          </p>
           <a class="download" class:muted-action={!status.app.current} href="/api/companion/app" download
-            >Download Companion {status.app.versionName}</a
+            >{t('download_companion', { value1: status.app.versionName })}</a
           >
-          <p class="hint">{megabytes(status.app.bytes)}, patched on {day(status.app.createdAt)}.</p>
+          <p class="hint">
+            {t('patched_on', { value1: megabytes(status.app.bytes), value2: day(status.app.createdAt) })}
+          </p>
         {:else}
           <p class="empty">
-            There is no app on this server yet.
-            {#if administrator}Upload one under {@render manageLink()}.{:else}Ask the server administrator to add it.{/if}
+            {t('companion_app_unavailable')}
+            {#if administrator}{t('set_it_up_under')} {@render manageLink()}.{:else}{t(
+                'companion_app_unavailable_hint',
+              )}{/if}
           </p>
         {/if}
       </li>
       <li>
-        <h2>Install it</h2>
+        <h2>{t('install_it')}</h2>
         <p>
-          Open the downloaded file. Android asks whether your browser may install apps: allow it, then select
-          <strong>Install</strong>.
+          {t('companion_install_open_file_hint')}
+          <strong>{t('install')}</strong>.
         </p>
-        <p class="hint">Google Play Protect may warn about an unknown app. Select <strong>Install anyway</strong>.</p>
+        <p class="hint">
+          {t('companion_install_play_protect_hint_prefix')} <strong>{t('install_anyway')}</strong>.
+        </p>
       </li>
       <li>
-        <h2>Send Companion to this server</h2>
+        <h2>{t('companion_description')}</h2>
+        <p>{t('companion_dns_override_hint')}</p>
         <p>
-          Install <a
-            href="https://github.com/x-falcon/Virtual-Hosts/releases/latest"
-            target="_blank"
-            rel="noopener noreferrer">Virtual Hosts</a
-          >, save these lines as <strong>hosts.txt</strong> on the phone, and select the file in Virtual Hosts:
+          {t('install_virtual_hosts_if_needed')}
+          <a href="https://github.com/x-falcon/Virtual-Hosts/releases/latest" target="_blank" rel="noopener noreferrer"
+            >{t('virtual_hosts')}</a
+          >{t('save_these_lines_as')} <strong>{t('hosts_txt')}</strong>
+          {t('companion_hosts_select_file_suffix')}
         </p>
         <div class="command">
           <code>{hosts}</code>
           {#if canCopy}
             <button type="button" class="copy" onclick={copyHosts} aria-live="polite"
-              >{copied ? 'Copied' : 'Copy'}</button
+              >{copied ? t('copied') : t('copy')}</button
             >
           {/if}
         </div>
         <p class="hint">
-          Turn off <strong>Private DNS</strong> in the Android settings. Leave cdn.zwift.com out: Companion loads its images
-          from Zwift. If the server runs its own DNS, set it as the Wi-Fi network's DNS instead.
+          {t('turn_off')} <strong>{t('private_dns')}</strong>
+          {t('companion_hosts_private_dns_hint')}
         </p>
       </li>
       <li>
-        <h2>Sign in</h2>
-        <p>Open Companion and sign in with your account on this server.</p>
+        <h2>{t('sign_in')}</h2>
+        <p>{t('companion_install_launch_hint')}</p>
       </li>
     </ol>
-  </section>
-{:else}
-  <section class="panel" aria-labelledby="companion-title">
-    <h2 id="companion-title">Zwift Companion on your phone</h2>
-    <p class="lead">
-      Companion only talks to a server it trusts. This server gives you a copy of the app that trusts it. Which phone is
-      it for?
-    </p>
-    <div class="systems">
-      {@render card(
-        'android',
-        'Android',
-        status.app ? `Companion ${status.app.versionName} for this server` : 'Not added to this server yet',
-      )}
-      {@render card('ios', 'iPhone and iPad', 'Not supported', true)}
-    </div>
   </section>
 {/if}
 
@@ -245,97 +190,6 @@
     color: inherit;
   }
   .empty {
-    color: var(--muted);
-  }
-
-  .systems {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
-    gap: 0.75rem;
-    margin: 1.25rem 0 0;
-  }
-  button.system {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    align-content: start;
-    gap: 0.2rem 1rem;
-    margin: 0;
-    padding: 1.1rem 1.25rem;
-    border: 2px solid var(--line);
-    border-radius: 12px;
-    background: var(--well);
-    text-align: left;
-    text-transform: none;
-    letter-spacing: 0;
-  }
-  button.system:hover {
-    border-color: var(--orange);
-    background: var(--glass-raised);
-  }
-  .system .name {
-    font-size: 1.375rem;
-    font-weight: 800;
-  }
-  .system .detail {
-    grid-column: 1 / -1;
-    color: var(--muted);
-    font-weight: 600;
-  }
-  .system .here {
-    grid-column: 1;
-    justify-self: start;
-    margin-top: 0.5rem;
-    padding: 0.1rem 0.55rem;
-    border: 1px solid var(--orange);
-    border-radius: 999px;
-    font-size: 0.75rem;
-  }
-  .system svg {
-    grid-column: 2;
-    grid-row: 1;
-    align-self: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 2.5;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-  }
-  /* Not supported, but still a door: it opens the reason. Dashed and quiet, never orange on hover. */
-  button.system.unavailable {
-    border-style: dashed;
-    background: none;
-  }
-  button.system.unavailable .name {
-    color: var(--muted);
-  }
-  button.system.unavailable:hover {
-    border-color: var(--muted);
-    background: var(--well);
-  }
-
-  .switch {
-    margin: -0.25rem 0 1.25rem;
-    color: var(--muted);
-    font-size: 0.875rem;
-  }
-  .switch a {
-    color: var(--muted);
-    text-decoration-thickness: 1px;
-  }
-  .switch a:hover {
-    color: var(--text);
-  }
-
-  .reasons {
-    margin: 0;
-    padding-left: 1.2rem;
-  }
-  .reasons li {
-    margin: 0 0 0.75rem;
-  }
-  .reasons li::marker {
     color: var(--muted);
   }
 

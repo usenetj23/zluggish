@@ -5,7 +5,7 @@ description: Show and change the settings of a rider.
 
 # Rider settings commands
 
-These commands need an existing local rider, identified by a numeric `--user ID`, and a valid operator config. The CLI keeps the overrides in `storage/settings.db`. It does not change the TypeScript config.
+These commands need an existing local rider, identified by a numeric `--user ID`, and a valid config. The CLI keeps the overrides in `storage/settings.db`. It does not change the TypeScript config.
 
 | Command                                        | Result                                                                                                                  |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
@@ -18,6 +18,7 @@ These commands need an existing local rider, identified by a numeric `--user ID`
 | Key                                   | JSON value                       |
 | ------------------------------------- | -------------------------------- |
 | `ghosts.enabled`                      | `true` or `false`                |
+| `uploads.intervals.enabled`           | `true` or `false`                |
 | `uploads.zwift.enabled`               | `true` or `false`                |
 | `uploads.strava.method`               | `"paid"` or `"free"`             |
 | `devices.zwiftClick.enabled`          | `true` or `false`                |

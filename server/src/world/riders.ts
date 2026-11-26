@@ -1,3 +1,4 @@
+import { t } from '#src/i18n/index';
 import { create, mergeFromJson } from '@bufbuild/protobuf';
 import type { JsonValue } from '@bufbuild/protobuf';
 import { readFileSync } from 'node:fs';
@@ -106,7 +107,7 @@ export class RiderPool {
 
     const profile = create(PlayerProfileSchema, {
       id,
-      firstName: 'Rider',
+      firstName: t('rider'),
       lastName: String(id),
       isMale: rng.value() > 0.5,
       weightInGrams: Math.round(rng.between(62, 86) * 1000),
