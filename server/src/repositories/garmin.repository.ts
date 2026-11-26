@@ -9,24 +9,25 @@ import { Schema } from 'effect';
 const oauth1 = Schema.Struct({
   oauth_token: Schema.String,
   oauth_token_secret: Schema.String,
-  mfa_token: Schema.optional(Schema.String),
-  mfa_expiration_timestamp: Schema.optional(Schema.String),
-  domain: Schema.optional(Schema.String),
+  // Python garth writes absent optional fields as null.
+  mfa_token: Schema.optional(Schema.NullOr(Schema.String)),
+  mfa_expiration_timestamp: Schema.optional(Schema.NullOr(Schema.String)),
+  domain: Schema.optional(Schema.NullOr(Schema.String)),
 });
 
 function oauth1Token(text: string) {
   const parsed = Schema.decodeUnknownSync(oauth1)(JSON.parse(text));
   const token: OAuth1Token = { oauth_token: parsed.oauth_token, oauth_token_secret: parsed.oauth_token_secret };
 
-  if (parsed.mfa_token !== undefined) {
+  if (parsed.mfa_token !== undefined && parsed.mfa_token !== null) {
     token.mfa_token = parsed.mfa_token;
   }
 
-  if (parsed.mfa_expiration_timestamp !== undefined) {
+  if (parsed.mfa_expiration_timestamp !== undefined && parsed.mfa_expiration_timestamp !== null) {
     token.mfa_expiration_timestamp = parsed.mfa_expiration_timestamp;
   }
 
-  if (parsed.domain !== undefined) {
+  if (parsed.domain !== undefined && parsed.domain !== null) {
     token.domain = parsed.domain;
   }
 
