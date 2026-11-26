@@ -9,6 +9,7 @@
   let {
     api,
     stravaMethod = $bindable(),
+    garminDevice = $bindable(),
     intervalsUpload = $bindable(),
     bridgeFolder = $bindable(),
     saved,
@@ -16,10 +17,11 @@
   }: {
     api: Api;
     stravaMethod: string;
+    garminDevice: boolean;
     intervalsUpload: boolean;
     bridgeFolder: string;
     /** The settings the server holds, so a tile does not change before its choice is saved. */
-    saved: { stravaMethod: string; intervalsUpload: boolean; bridgeFolder: string };
+    saved: { stravaMethod: string; garminDevice: boolean; intervalsUpload: boolean; bridgeFolder: string };
     save: () => Promise<void>;
   } = $props();
 
@@ -58,6 +60,16 @@
 
   type Stored = { id: Credential; label: string; detail: string; effect: string };
 
+  /** The Edge that the FIT file sent to Garmin Connect says it was recorded on. */
+  type Device = { manufacturer: number; product: number; serial: number };
+
+  const garminDevicesSchema = z.object({
+    device: z.object({ manufacturer: z.number(), product: z.number(), serial: z.number() }).nullable(),
+    devices: z.array(z.object({ product: z.number(), name: z.string() })),
+  });
+
+  type GarminDevices = z.infer<typeof garminDevicesSchema>;
+
   let connections = $state<Record<Provider, Connection> | null>(null);
   let secrets = $state<Record<Provider, string>>({ strava: '', garmin: '', intervals: '' });
   let cookie = $state('');
@@ -72,6 +84,65 @@
     } catch {
       cookieStatus = 'error';
     }
+  }
+
+  /** The model chosen in the list, until it is saved; null shows the one that is saved. */
+  let deviceProduct = $state<string | null>(null);
+  let deviceSerial = $state('');
+
+  let garminDevices = $state<GarminDevices | null>(null);
+
+  const productChosen = $derived(deviceProduct ?? String(garminDevices?.device?.product ?? ''));
+
+  async function loadDevice() {
+    garminDevices = await api(garminDevicesSchema, '/api/me/connections/garmin/device');
+  }
+
+  const deviceName = (device: Device | null | undefined) =>
+    device
+      ? t('garmin_device_identity', {
+          model:
+            garminDevices?.devices.find((model) => model.product === device.product)?.name ??
+            t('garmin_device_product', { product: device.product }),
+          serial: device.serial,
+        })
+      : t('garmin_device_none');
+
+  function saveDevice() {
+    void run(async () => {
+      if (productChosen === '') {
+        await api(ignored, '/api/me/connections/garmin/device', 'DELETE');
+        message = t('garmin_device_removed');
+      } else {
+        const product = Number(productChosen);
+
+        if (deviceSerial.trim() === '') {
+          await api(ignored, '/api/me/connections/garmin/device', 'PUT', { product });
+        } else {
+          await api(ignored, '/api/me/connections/garmin/device', 'PUT', { product, serial: Number(deviceSerial) });
+        }
+
+        message = t('garmin_device_saved');
+      }
+
+      await loadDevice();
+      deviceProduct = null;
+      deviceSerial = '';
+    });
+  }
+
+  /** The device is opt-in; the chosen model and serial number stay while the setting is off. */
+  function saveDeviceSetting() {
+    void run(async () => {
+      try {
+        await save();
+      } catch (error) {
+        garminDevice = saved.garminDevice;
+        throw error;
+      }
+
+      message = t('garmin_setting_saved');
+    });
   }
 
   let code = $state('');
@@ -385,6 +456,7 @@
       if (connections?.strava.cookie && saved.stravaMethod === 'free') {
         void testCookie();
       }
+      void loadDevice();
     });
   });
 </script>
@@ -630,6 +702,41 @@
           {@render disconnectButton('garmin')}
         </div>
         {@render storedList('garmin')}
+        <h3>{t('garmin_device_title')}</h3>
+        <label class="check"
+          ><input type="checkbox" bind:checked={garminDevice} disabled={busy} onchange={saveDeviceSetting} />
+          {t('garmin_device_enable')}</label
+        >
+        <p class="muted">{t('garmin_device_default')}</p>
+        {#if garminDevice}
+          <p class="muted">
+            {t('garmin_device_description', { device: deviceName(garminDevices?.device) })}
+          </p>
+          <label class="field" for="garmin-device"
+            >{t('garmin_device_model')}
+            <select
+              id="garmin-device"
+              value={productChosen}
+              disabled={busy}
+              onchange={(event) => (deviceProduct = event.currentTarget.value)}
+            >
+              <option value="">{t('garmin_device_original')}</option>
+              {#each garminDevices?.devices ?? [] as model (model.product)}
+                <option value={String(model.product)}>{model.name}</option>
+              {/each}
+            </select>
+          </label>
+          <TextField
+            id="garmin-serial"
+            label={t('garmin_device_serial')}
+            bind:value={deviceSerial}
+            maxlength={10}
+            hint={t('garmin_device_serial_hint')}
+          />
+          <div class="actions">
+            <button disabled={busy} onclick={saveDevice}>{t('garmin_device_save')}</button>
+          </div>
+        {/if}
       {:else if open === 'intervals'}
         <p class="muted">{t('connections_intervals_credentials_hint')}</p>
         {@render credentials('intervals')}
