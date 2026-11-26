@@ -176,8 +176,9 @@
       </li>
       <li>
         <h2>{t('phone_setup_description')}</h2>
+        <p>{t('dns_override_alternatives_hint')}</p>
         <p>
-          {t('install')}
+          {t('install_virtual_hosts_if_needed')}
           <a href="https://github.com/x-falcon/Virtual-Hosts/releases/latest" target="_blank" rel="noopener noreferrer"
             >{t('virtual_hosts')}</a
           >{t('save_these_lines_as')} <strong>{t('hosts_txt')}</strong>
