@@ -8,6 +8,7 @@ export const overrideSchema = Schema.Struct({
   'uploads.zwift.enabled': Schema.optional(Schema.Boolean),
   'uploads.strava.method': Schema.optional(Schema.Enum(StravaMethod)),
   'uploads.garmin.photos.enabled': Schema.optional(Schema.Boolean),
+  'uploads.garmin.device.enabled': Schema.optional(Schema.Boolean),
   'devices.zwiftClick.enabled': Schema.optional(Schema.Boolean),
   'workouts.trainingpeaks.bridgeFolder': Schema.optional(Schema.String),
 });

@@ -483,5 +483,50 @@
     "file": "server/src/repositories/app-release.repository.ts",
     "value": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
     "reason": "HTTP Accept header for release downloads."
+  },
+  {
+    "file": "server/src/world/fit-device.ts",
+    "value": "Edge 1040",
+    "reason": "Garmin product model name."
+  },
+  {
+    "file": "server/src/world/fit-device.ts",
+    "value": "Edge 1050",
+    "reason": "Garmin product model name."
+  },
+  {
+    "file": "server/src/world/fit-device.ts",
+    "value": "Edge 1030 Plus",
+    "reason": "Garmin product model name."
+  },
+  {
+    "file": "server/src/world/fit-device.ts",
+    "value": "Edge 830",
+    "reason": "Garmin product model name."
+  },
+  {
+    "file": "server/src/world/fit-device.ts",
+    "value": "Edge 530",
+    "reason": "Garmin product model name."
+  },
+  {
+    "file": "server/src/world/fit-device.ts",
+    "value": "Edge 130 Plus",
+    "reason": "Garmin product model name."
+  },
+  {
+    "file": "server/src/world/fit-device.ts",
+    "value": "Edge 1030",
+    "reason": "Garmin product model name."
+  },
+  {
+    "file": "server/src/world/fit-device.ts",
+    "value": "Edge 130",
+    "reason": "Garmin product model name."
+  },
+  {
+    "file": "server/src/world/fit-device.ts",
+    "value": "Edge 820",
+    "reason": "Garmin product model name."
   }
 ]

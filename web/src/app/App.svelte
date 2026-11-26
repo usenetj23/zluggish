@@ -109,6 +109,7 @@
   let ghosts = $state(false);
   let stravaMethod = $state('paid');
   let garminPhotos = $state(false);
+  let garminDevice = $state(false);
   let intervalsUpload = $state(true);
   let bridgeFolder = $state('');
 
@@ -466,6 +467,9 @@
       garminPhotos: Boolean(
         body.overrides['uploads.garmin.photos.enabled'] ?? body.defaults.uploads.garmin.photos.enabled,
       ),
+      garminDevice: Boolean(
+        body.overrides['uploads.garmin.device.enabled'] ?? body.defaults.uploads.garmin.device.enabled,
+      ),
       intervalsUpload: Boolean(body.overrides['uploads.intervals.enabled'] ?? body.defaults.uploads.intervals.enabled),
       bridgeFolder: String(
         body.overrides['workouts.trainingpeaks.bridgeFolder'] ?? body.defaults.workouts.trainingpeaks.bridgeFolder,
@@ -474,7 +478,7 @@
   }
 
   function applySettings(body: UserSettings) {
-    ({ ghosts, stravaMethod, garminPhotos, intervalsUpload, bridgeFolder } = preferences(body));
+    ({ ghosts, stravaMethod, garminPhotos, garminDevice, intervalsUpload, bridgeFolder } = preferences(body));
   }
 
   async function saveSettings() {
@@ -594,6 +598,7 @@
         'ghosts.enabled': ghosts,
         'uploads.strava.method': stravaMethod,
         'uploads.garmin.photos.enabled': garminPhotos,
+        'uploads.garmin.device.enabled': garminDevice,
         'uploads.intervals.enabled': intervalsUpload,
         'workouts.trainingpeaks.bridgeFolder': bridgeFolder,
       },
@@ -1739,6 +1744,7 @@
             {api}
             bind:stravaMethod
             bind:garminPhotos
+            bind:garminDevice
             bind:intervalsUpload
             bind:bridgeFolder
             saved={preferences(settings)}

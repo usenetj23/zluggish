@@ -174,8 +174,8 @@ export default defineConfig({
       zwift: { enabled: false },
       // Strava upload method: 'paid' or 'free'.
       strava: { method: 'paid' },
-      // Add the photos of a ride to its Garmin Connect activity. Off means Garmin gets only the FIT file.
-      garmin: { photos: { enabled: false } },
+      // Garmin device identity and activity photos are independently opt-in.
+      garmin: { device: { enabled: false }, photos: { enabled: false } },
     },
     // Pair a Zwift Click controller.
     devices: { zwiftClick: { enabled: false } },

@@ -23,6 +23,9 @@ function resolveRiderSettings(defaults: RiderSettings, overrides: Overrides) {
         photos: {
           enabled: overrides['uploads.garmin.photos.enabled'] ?? defaults.uploads.garmin.photos.enabled,
         },
+        device: {
+          enabled: overrides['uploads.garmin.device.enabled'] ?? defaults.uploads.garmin.device.enabled,
+        },
       },
     },
     devices: {
