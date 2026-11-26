@@ -1,4 +1,5 @@
 import { Effect } from 'effect';
+import { blobRiderFigures, STAND_RATIO } from '#src/world/pro-build';
 import { RideRecoveryService } from '#src/services/ride-recovery.service';
 import { validateConfig } from '#src/config/index';
 import { PlayerProfileSchema } from '#src/protocol/generated/profile_pb';
@@ -318,8 +319,17 @@ await test('synthetic riders carry an FTP: pacers 400, bots and blobs from their
   assert.ok(blob);
   assert.equal(blob.riders.length, 3);
 
+  // Blob riders ride at the owner's W/kg scaled by their strength and stand up past a multiple of the owner's FTP.
   for (const bot of blob.riders) {
-    assert.equal(bot.profile.ftp, 250);
+    const traits = simulation.pool.traitsOf(bot.profile.id);
+    const figures = blobRiderFigures(
+      { ftp: 250, weightKg: 70 },
+      { weightKg: bot.profile.weightInGrams / 1000, ...traits },
+    );
+    assert.equal(bot.profile.ftp, figures.ftp);
+    assert.equal(bot.powerScale, figures.powerScale);
+    assert.ok(bot.profile.ftp > 250);
+    assert.ok(Math.abs((2 * bot.profile.ftp) / bot.powerScale / 250 - STAND_RATIO[traits.specialty]) < 0.01);
   }
 });
 

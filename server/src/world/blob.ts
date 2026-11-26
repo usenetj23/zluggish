@@ -11,6 +11,7 @@ import { course, forward, road } from '#src/world/state';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { decodeOwned } from '#src/schema';
+import { blobRiderFigures } from '#src/world/pro-build';
 import { Schema } from 'effect';
 
 type BlobConfig = ResolvedConfig['soloBlob'];
@@ -35,7 +36,15 @@ interface BlobRider {
   wanderGap: number;
   wanderLat: number;
   blocked: number;
+  /** The rider's power is your power times this, see `blobRiderFigures`. */
+  powerScale: number;
   state: PlayerState | null;
+}
+
+/** The rider the blob rides with: FTP in watts and weight in kilograms (0 when unknown). */
+export interface BlobOwner {
+  ftp: number;
+  weightKg: number;
 }
 
 let generation = Math.floor(Date.now() / 1000) % 33;
@@ -111,7 +120,7 @@ export class Blob {
   constructor(
     readonly playerId: bigint,
     readonly index: number,
-    readonly ftp: number,
+    readonly owner: BlobOwner,
     readonly config: BlobConfig,
     pool: RiderPool,
     assets: string,
@@ -128,7 +137,8 @@ export class Blob {
 
     for (let i = 0; i < config.riders; i++) {
       const profile = pool.profile(BigInt(8_500_001 + index * 1000 + generation * 30 + i), {}, config.onlyKitted);
-      profile.ftp = ftp;
+      const figures = blobRiderFigures(owner, { weightKg: profile.weightInGrams / 1000, ...pool.traitsOf(profile.id) });
+      profile.ftp = figures.ftp;
       this.riders.push({
         profile,
         slot: i,
@@ -145,6 +155,7 @@ export class Blob {
         wanderGap: 0,
         wanderLat: 0,
         blocked: 0,
+        powerScale: figures.powerScale,
         state: null,
       });
     }
@@ -916,7 +927,7 @@ export class Blob {
             ? 1 + this.rng.gaussian(0.03)
             : 0.75 + 0.25 * clamp(rider.gap / 10, 0, 1) + this.rng.gaussian(0.03);
 
-    state.power = Math.max(0, Math.trunc(state.power * effort));
+    state.power = Math.max(0, Math.trunc(state.power * effort * rider.powerScale));
     rider.state = state;
   }
 }
