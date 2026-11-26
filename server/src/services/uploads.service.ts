@@ -1,4 +1,6 @@
+import { t } from '#src/i18n/index';
 import { isIntervalsAthleteId } from '#src/dtos/intervals.dto';
+import { decodeIntervalsImport, intervalsActivityId } from '#src/dtos/remote-ids.dto';
 import { RuntimeContext } from '#src/context';
 import { UploadProvider, UploadState } from '#src/enum';
 import type { RemovableCredentialFile, JobType } from '#src/enum';
@@ -7,6 +9,7 @@ import { ApplicationError, DeliveryRefusedError, refused, UnreadableCredentialsE
 import type { Activity } from '#src/protocol/generated/activity_pb';
 import { ActivitySchema } from '#src/protocol/generated/activity_pb';
 import { PlayerProfileSchema } from '#src/protocol/generated/profile_pb';
+import { activityFolder, imagePath, videoPath } from '#src/activity-storage';
 import { SystemFlag } from '#src/repositories/system-flag.repository';
 import type { Delivery } from '#src/repositories/uploads.repository';
 import { officialRelay } from '#src/repositories/zwift.repository';
@@ -18,8 +21,7 @@ import type { StoredEntry } from '#src/dtos/workout.dto';
 import { WorkoutsService } from '#src/services/workout.service';
 import { parseDeviceIdentity, patchDeviceIdentity } from '#src/world/fit-device';
 import { clearField, clone, fromBinary, toBinary } from '@bufbuild/protobuf';
-import { resolve } from 'node:path';
-import { Context, Effect, Layer, Schema } from 'effect';
+import { Context, Effect, Layer, Option, Schema } from 'effect';
 
 const isoDate = (value: string | null | undefined) =>
   value && /^\d{4}-\d{2}-\d{2}(?:[T ].*)?$/.test(value) && !Number.isNaN(Date.parse(value.slice(0, 10)))
@@ -83,6 +85,21 @@ const make = Effect.gen(function* () {
   const workoutsService = yield* WorkoutsService;
   const jobs = yield* JobsService;
 
+  /** Remember the id of the activity a provider created; a failure is only reported because the upload already happened. */
+  function rememberRemote(attempt: Attempt | undefined, id: string | null) {
+    if (!attempt || !id) {
+      return;
+    }
+
+    try {
+      repositories.uploadsRepository.setRemote(attempt.activity, attempt.provider, attempt.token, id);
+    } catch (error) {
+      context.world.lifecycle.log.warn('upload.remote_id', 'Could not store the remote activity id', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   function configured(player: number) {
     const settings = SettingsService.resolveRiderSettings(context.config.riderDefaults, context.settings.read(player));
 
@@ -103,7 +120,7 @@ const make = Effect.gen(function* () {
       providers.push('runalyze');
     }
 
-    if (repositories.connectionsRepository.has(player, 'intervals')) {
+    if (settings.uploads.intervals.enabled && repositories.connectionsRepository.has(player, 'intervals')) {
       providers.push('intervals');
     }
 
@@ -143,18 +160,21 @@ const make = Effect.gen(function* () {
       const stored = repositories.activitiesRepository.fit(activity);
 
       if (!stored || stored.player !== player) {
-        throw new ApplicationError({ status: 404, message: 'Activity not found.' });
+        throw new ApplicationError({ status: 404, message: t('activity_not_found') });
       }
 
       if (!stored.fit?.length || !uploadPayload(activity)) {
         throw new ApplicationError({
           status: 409,
-          message: 'Only a finished activity with a FIT file can be uploaded.',
+          message: t('uploads_activity_not_uploadable'),
         });
       }
 
       if (!configured(player).includes(provider)) {
-        throw new ApplicationError({ status: 409, message: 'Connect this service in Integrations first.' });
+        throw new ApplicationError({
+          status: 409,
+          message: t('uploads_connection_required'),
+        });
       }
       const state = repositories.uploadsRepository.get(activity, provider)?.state;
 
@@ -165,7 +185,7 @@ const make = Effect.gen(function* () {
       if ((state === 'sent' || state === 'ambiguous') && !again) {
         throw new ApplicationError({
           status: 409,
-          message: 'This activity may already be there. Confirm to upload it again.',
+          message: t('uploads_duplicate_confirmation_required'),
         });
       }
 
@@ -376,28 +396,39 @@ const make = Effect.gen(function* () {
         return zwift(player, activity, attempt);
       }
 
+      case 'garmin': {
+        return garmin(player, activity, attempt);
+      }
+
+      case 'intervals': {
+        return intervals(player, activity, attempt);
+      }
+
       default: {
-        return ({ strava, garmin, runalyze, intervals } as const)[attempt.provider](player, activity);
+        return ({ strava, runalyze } as const)[attempt.provider](player, activity);
       }
     }
   }
 
   /** Ready photos and videos only: a reserved row may have no complete file yet. */
   function photosNow(player: number, activity: number) {
-    const folder = context.profiles.folder(player);
+    const stored = repositories.activitiesRepository.storageDirectory(activity);
+
+    if (!stored || stored.player !== player) {
+      return [];
+    }
+    const folder = activityFolder(context.profiles.folder(player), stored.directory);
     const paths = [];
 
     for (const photo of repositories.activitiesRepository.listActivityImage(player, activity)) {
       if (photo.state === 'ready') {
-        paths.push(resolve(folder, 'images', `${photo.id}.jpg`));
+        paths.push(imagePath(folder, photo.id));
       }
     }
 
     for (const photo of repositories.activitiesRepository.listActivityMedia(player, activity)) {
       if (photo.state === 'ready') {
-        paths.push(
-          resolve(folder, 'medias', `${photo.id}.${photo.content_type.includes('quicktime') ? 'mov' : 'mp4'}`),
-        );
+        paths.push(videoPath(folder, photo.id, photo.content_type));
       }
     }
 
@@ -472,17 +503,19 @@ const make = Effect.gen(function* () {
     );
   }
 
-  async function garmin(player: number, activity: Activity) {
+  async function garmin(player: number, activity: Activity, attempt?: Attempt) {
     if (!repositories.riderDocuments.has(player, 'garth/oauth1_token.json')) {
       throw new DeliveryRefusedError({ code: 'garmin_unauthorized' });
     }
 
-    await repositories.garminRepository.uploadGarmin(
+    const id = await repositories.garminRepository.uploadGarmin(
       repositories.garminRepository.tokenStore(repositories.riderDocuments, player),
       context.config.integrations.garmin.domain,
       activity.fitFilename,
       forGarmin(player, activity.fit),
     );
+
+    rememberRemote(attempt, id);
   }
 
   async function runalyze(player: number, activity: Activity) {
@@ -505,7 +538,7 @@ const make = Effect.gen(function* () {
     );
   }
 
-  async function intervals(player: number, activity: Activity) {
+  async function intervals(player: number, activity: Activity, attempt?: Attempt) {
     const credentials = repositories.connectionsRepository.read(player, 'intervals');
 
     if (!credentials) {
@@ -526,17 +559,22 @@ const make = Effect.gen(function* () {
     const form = new FormData();
     form.set('file', repositories.sessionRepository.binaryBlob(activity.fit), 'file');
 
-    await checked(
+    const response = await checked(
       await fetch(`https://intervals.icu/api/v1/athlete/${athlete}/activities?${query}`, {
         method: 'POST',
         headers: {
-          Authorization: `Basic ${Buffer.from(`API_KEY:${key}`).toString('base64')}`,
+          Authorization: t('basic', { value1: Buffer.from(`API_KEY:${key}`).toString('base64') }),
         },
         body: form,
         signal: AbortSignal.timeout(30_000),
       }),
       'intervals',
     );
+
+    const body: unknown = await response.json().catch(() => null);
+    const id = Option.match(decodeIntervalsImport(body), { onNone: () => null, onSome: intervalsActivityId });
+
+    rememberRemote(attempt, id);
 
     if (paired !== null) {
       Effect.runSync(workouts.removeEvent(player, paired));

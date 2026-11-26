@@ -83,6 +83,7 @@ export const userSettingsSchema = z.object({
   defaults: z.object({
     ghosts: z.object({ enabled: z.boolean() }),
     uploads: z.object({
+      intervals: z.object({ enabled: z.boolean() }),
       strava: z.object({ method: z.string() }),
       garmin: z.object({ device: z.object({ enabled: z.boolean() }) }),
     }),

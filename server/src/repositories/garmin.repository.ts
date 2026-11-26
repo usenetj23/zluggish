@@ -1,9 +1,11 @@
+import { t } from '#src/i18n/index';
 import { DeliveryRefusedError, refused } from '#src/errors';
 import type { RiderDocuments } from '#src/repositories/rider-document.repository';
 import { SessionRepository } from '#src/repositories/session.repository';
+import { decodeGarminImport, garminActivityId } from '#src/dtos/remote-ids.dto';
 import type { OAuth1Token, TokenStore, Tokens } from 'garminconnect-js';
 import { Garmin, GarminAuthError, GarminClient, GarminHttpError, MemoryTokenStore } from 'garminconnect-js';
-import { Schema } from 'effect';
+import { Option, Schema } from 'effect';
 
 const oauth1 = Schema.Struct({
   oauth_token: Schema.String,
@@ -84,7 +86,7 @@ export class GarminRepository {
 
   garminClient(store: TokenStore | null, domain: string) {
     if (!['garmin.com', 'garmin.cn'].includes(domain)) {
-      throw new Error('Unsupported Garmin domain');
+      throw new Error(t('unsupported_garmin_domain'));
     }
 
     return new GarminClient({
@@ -100,13 +102,13 @@ export class GarminRepository {
     const tokens = client.getTokens();
 
     if (!tokens) {
-      throw new Error('Missing Garmin authorization');
+      throw new Error(t('missing_garmin_authorization'));
     }
     await store.save(tokens);
   }
 
   /** Garmin rejects a duplicate import with 409: the activity is already there. */
-  async uploadGarmin(store: TokenStore, domain: string, filename: string, fit: Uint8Array) {
+  async uploadGarmin(store: TokenStore, domain: string, filename: string, fit: Uint8Array): Promise<string | null> {
     const client = this.garminClient(store, domain);
 
     if (!(await client.loadTokens())) {
@@ -114,15 +116,17 @@ export class GarminRepository {
     }
 
     try {
-      await new Garmin(client).importActivity(
+      const result = await new Garmin(client).importActivity(
         new SessionRepository().binaryBlob(fit),
         filename.endsWith('.fit') ? filename : 'activity.fit',
       );
+
+      return Option.match(decodeGarminImport(result), { onNone: () => null, onSome: garminActivityId });
     } catch (error) {
       const http = error instanceof GarminHttpError ? error : error instanceof Error ? error.cause : null;
 
       if (http instanceof GarminHttpError && http.status === 409) {
-        return;
+        return null;
       }
 
       if (http instanceof GarminHttpError && refused(http.status)) {

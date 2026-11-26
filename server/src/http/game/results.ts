@@ -1,3 +1,4 @@
+import { t } from '#src/i18n/index';
 import type { FormResult, GameSaved } from '#src/dtos/game-app.dto';
 import type { RuntimeEnv } from '#src/http/runtime';
 import type { Context } from 'hono';
@@ -5,7 +6,7 @@ import type { Context } from 'hono';
 // Explicit browser routes only. Protocol APIs and the native handoff are excluded.
 const routes = [/^\/login\/$/, /^\/riders\/(?:add|switch)\/$/, /^\/user\/[^/]+\/$/, /^\/ui\/status\/session$/];
 
-export function browserJson(c: Context<RuntimeEnv>) {
+export function browserJson(c: Context) {
   return c.req.header('Accept')?.includes('application/json') && routes.some((route) => route.test(c.req.path));
 }
 
@@ -17,7 +18,7 @@ export function navigationPath(path: string) {
 
 export function gameRedirect(c: Context<RuntimeEnv>, path: string) {
   if (!navigationPath(path)) {
-    throw new Error('Unsafe game app redirect');
+    throw new Error(t('unsafe_game_app_redirect'));
   }
   c.header('Cache-Control', 'no-store');
 

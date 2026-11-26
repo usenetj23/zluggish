@@ -1,3 +1,4 @@
+import { launcherAssetRoutes } from '#src/http/routes/assets';
 import type { Runtime } from '#src/http/runtime';
 import { startHttp } from '#src/node/network/http';
 import { fetchCdn } from '#src/node/network/proxy';
@@ -20,6 +21,9 @@ const contentTypes = new Map([
 export function createCdn(runtime: Runtime) {
   const app = new Hono();
   const root = resolve(runtime.assets, 'cdn');
+  // The Windows launcher loads its post-launch screen from the HTTP CDN.
+  launcherAssetRoutes(app, runtime);
+
   app.get('/tp-workouts/intervalsicu/:id', (c) => {
     const file = runtime.effects.runSync(
       WorkoutsService.use((workouts) => workouts.file(c.req.param('id').replace(/\.zwo$/, ''))),
