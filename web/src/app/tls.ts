@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
-/** The server's TLS certificate, as GET /api/tls reports it. */
 export const tlsStatus = z.object({
-  mode: z.enum(['managed', 'legacy', 'custom', 'disabled']),
+  mode: z.enum(['managed', 'legacy', 'custom']),
+  canRotate: z.boolean(),
   certificate: z
     .object({
       fingerprint256: z.string(),

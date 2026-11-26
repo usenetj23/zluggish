@@ -23,7 +23,6 @@ export function immediate<T>(db: DatabaseSync, operation: () => T): T {
   });
 }
 
-/** Join the caller's transaction, or run in a new one. */
 export function atomic<T>(db: DatabaseSync, operation: () => T): T {
   return db.isTransaction ? operation() : immediate(db, operation);
 }

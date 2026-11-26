@@ -1,12 +1,11 @@
+import { t } from '#src/i18n/index';
 import { CryptoRepository } from '#src/repositories/crypto.repository';
 import { AssetFiles } from '#src/repositories/files.repository';
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 
 /** The Zwift host names that the client reaches over HTTPS. */
 export const zwiftHosts = ['*.zwift.com', 'zwift.com'] as const;
 
-/** A server key and the self-signed certificate for it, both PEM. */
 export interface CertificateMaterial {
   readonly cert: string;
   readonly key: string;
@@ -48,7 +47,6 @@ const critical = element(0x01, Buffer.from([0xff]));
 const explicit = (index: number, inner: Uint8Array) => element(0xa0 | index, inner);
 const bits = (bytes: Uint8Array, unused = 0) => element(0x03, Buffer.from([unused]), bytes);
 
-/** A non-negative INTEGER from big-endian bytes. */
 function integer(bytes: Uint8Array) {
   let start = 0;
 
@@ -90,7 +88,6 @@ const extension = (id: string, value: Uint8Array, isCritical = false) =>
 
 const attribute = (id: string, value: string) => set(sequence(oid(id), utf8(value)));
 
-/** The content bounds of the DER element at `at`. */
 function bounds(der: Uint8Array, at: number) {
   const first = der[at + 1] ?? 0;
   const lengthBytes = first < 0x80 ? 0 : first & 0x7f;
@@ -114,14 +111,15 @@ function subjectPublicKey(spki: Uint8Array) {
   return spki.subarray(key.start + 1, key.end);
 }
 
-const pem = (label: string, der: Uint8Array) =>
-  `-----BEGIN ${label}-----\n${(
-    Buffer.from(der)
-      .toString('base64')
-      .match(/.{1,64}/g) ?? []
-  ).join('\n')}\n-----END ${label}-----\n`;
+const certificatePem = (der: Uint8Array) =>
+  t('begin_certificate_end_certificate', {
+    value1: (
+      Buffer.from(der)
+        .toString('base64')
+        .match(/.{1,64}/g) ?? []
+    ).join('\n'),
+  });
 
-/** Generates, stores and reads the server's own TLS key and certificate. */
 export class CertificateRepository {
   constructor(
     private readonly crypto = new CryptoRepository(),
@@ -174,7 +172,45 @@ export class CertificateRepository {
 
     const certificate = sequence(tbs, signature, bits(this.crypto.signEcdsaSha256(tbs, privateKey)));
 
-    return { cert: pem('CERTIFICATE', certificate), key: privateKey };
+    return { cert: certificatePem(certificate), key: privateKey };
+  }
+
+  /** A new ECDSA P-256 key and a self-signed certificate that signs the server's rebuilt Android apps.
+
+  Android checks only that every later version is signed by the same certificate, never its dates or issuer.
+  */
+  async createApkSigner(request: CertificateRequest): Promise<CertificateMaterial> {
+    const { publicKey, privateKey } = await this.crypto.generateEcKeyPair();
+    const keyId = this.crypto.sha1(subjectPublicKey(publicKey));
+    const serial = this.crypto.randomBytes(16);
+    serial[0] = (serial[0] ?? 0) & 0x7f;
+    const notAfter = new Date(request.now);
+    notAfter.setUTCFullYear(notAfter.getUTCFullYear() + request.years);
+    const signature = sequence(oid('1.2.840.10045.4.3.2'));
+
+    const name = sequence(
+      attribute('2.5.4.10', 'Zluggish'),
+      attribute('2.5.4.11', `Zluggish server ${request.serverId}`),
+      attribute('2.5.4.3', 'Zwift Companion signer'),
+    );
+
+    const tbs = sequence(
+      explicit(0, integer(Buffer.from([2]))),
+      integer(serial),
+      signature,
+      name,
+      sequence(time(request.now), time(notAfter)),
+      name,
+      publicKey,
+      explicit(
+        3,
+        sequence(extension('2.5.29.15', bits(Buffer.from([0x80]), 7), true), extension('2.5.29.14', octets(keyId))),
+      ),
+    );
+
+    const certificate = sequence(tbs, signature, bits(this.crypto.signEcdsaSha256(tbs, privateKey)));
+
+    return { cert: certificatePem(certificate), key: privateKey };
   }
 
   /** The stored key and certificate, or null when the server has none yet. Throws on a damaged file. */
@@ -187,7 +223,7 @@ export class CertificateRepository {
     const cert = /-----BEGIN CERTIFICATE-----[\s\S]+?-----END CERTIFICATE-----\n?/.exec(text)?.[0];
 
     if (!key || !cert || !this.crypto.certificateMatchesKey(cert, key)) {
-      throw new Error(`${path} does not hold a matching private key and certificate`);
+      throw new Error(t('certificate_key_pair_mismatch', { value1: path }));
     }
 
     return { cert, key };
@@ -198,16 +234,7 @@ export class CertificateRepository {
     await this.files.writeDurableAsync(path, material.key + material.cert, true);
   }
 
-  /** The configured or bundled key and certificate files. */
   readFiles(certFile: string, keyFile: string): CertificateMaterial {
     return { cert: readFileSync(certFile, 'utf8'), key: readFileSync(keyFile, 'utf8') };
-  }
-
-  /** The legacy certificate bundled with the server, whose private key is public. */
-  legacyFiles(assets: string) {
-    return {
-      cert: resolve(assets, 'ssl/cert-zwift-com.pem'),
-      key: resolve(assets, 'ssl/key-zwift-com.pem'),
-    };
   }
 }

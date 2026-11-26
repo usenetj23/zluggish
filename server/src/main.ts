@@ -1,3 +1,4 @@
+import { t } from '#src/i18n/index';
 import { ManagementService } from '#src/services/management.service';
 import { TlsService } from '#src/services/tls.service';
 import { Resources } from '#src/node/lifecycle/resources';
@@ -43,7 +44,7 @@ const { config, path: configPath } = await loadConfig(prepareContainerConfig(opt
 });
 
 if (existsSync(resolve(config.storageDir, '.config-migration.json'))) {
-  throw new ConfigError('Interrupted config migration; resume config migrate before starting');
+  throw new ConfigError(t('main_config_migration_incomplete'));
 }
 
 const root = packageRoot();
@@ -71,7 +72,6 @@ function closeHttp(listener: ReturnType<typeof startHttp>) {
   });
 }
 
-/** Acquire a listener into the current scope. */
 const listening = <A>(
   open: () => A,
   close: (listener: A) => void | Promise<void>,
@@ -82,7 +82,6 @@ const listening = <A>(
     }),
   );
 
-/** Open the runtime and every listener into the current scope, and report readiness. */
 const serve = Effect.fn('server.start')(function* () {
   const webConfig = config.network.web;
 
@@ -96,7 +95,7 @@ const serve = Effect.fn('server.start')(function* () {
       ...(config.dns.enabled ? [53] : []),
     ].includes(webConfig.port)
   ) {
-    throw new ConfigError('The web port must differ from every game listener port.');
+    throw new ConfigError(t('main_web_port_conflict'));
   }
 
   const owner = yield* Effect.acquireRelease(
@@ -112,9 +111,10 @@ const serve = Effect.fn('server.start')(function* () {
   const tls = owner.runtime.effects.runSync(TlsService);
   const material = tls.material();
 
-  if (material) {
-    listener.tls = material;
+  if (!material) {
+    throw new ConfigError(t('main_tls_certificate_required'));
   }
+  listener.tls = material;
 
   const server = yield* listening(() => startHttp(app, listener), closeHttp);
 
@@ -137,7 +137,12 @@ const serve = Effect.fn('server.start')(function* () {
   const web = webConfig.enabled
     ? yield* listening(
         () =>
-          startHttp(createWebApp(owner.runtime), { host: webConfig.host ?? config.network.host, port: webConfig.port }),
+          startHttp(createWebApp(owner.runtime), {
+            host: webConfig.host ?? config.network.host,
+            port: webConfig.port,
+            // Allow large Android bundles on slower connections.
+            requestTimeout: 2 * 60 * 60 * 1000,
+          }),
         closeHttp,
       )
     : null;
@@ -170,17 +175,17 @@ const serve = Effect.fn('server.start')(function* () {
   yield* Effect.tryPromise({
     try: () => Promise.all(listeners.map((socket) => once(socket, 'listening'))),
     catch: (error) => {
-      log.critical('server.start_failed', 'Required listener could not start', {
+      log.critical('server.start_failed', t('main_listener_start_failed'), {
         error: error instanceof Error ? error : String(error),
       });
 
-      return new Error('Required listener could not start', { cause: error });
+      return new Error(t('main_listener_start_failed'), { cause: error });
     },
   });
 
-  console.log(
-    'Use Zluggish only on a network that you trust. Other devices on the network can read the passwords that riders type.',
-  );
+  if (tls.mode() === 'legacy') {
+    console.log('Zwift traffic, passwords included, can be read on this network. Use a trusted network only.');
+  }
 
   if (web) {
     const bind = webConfig.host ?? config.network.host;
@@ -197,7 +202,7 @@ const serve = Effect.fn('server.start')(function* () {
 
     if (setupKey) {
       console.log(
-        `============================================================\nZluggish first-time setup\nOpen: ${address}/setup\nSetup key: ${setupKey}\nThis key works until setup is complete or the server stops.\n============================================================`,
+        `============================================================\nZluggish first-time setup\nOpen: ${address}/setup\nSetup key: ${setupKey}\nValid until setup is complete or the server stops.\n============================================================`,
       );
     }
   }
@@ -276,7 +281,9 @@ async function start() {
     try {
       await resources.close();
     } catch (cleanupError) {
-      throw new AggregateError([error, cleanupError], 'Server startup and cleanup failed', { cause: cleanupError });
+      throw new AggregateError([error, cleanupError], t('main_startup_cleanup_failed'), {
+        cause: cleanupError,
+      });
     }
 
     throw error;

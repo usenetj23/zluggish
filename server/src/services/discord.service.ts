@@ -1,3 +1,4 @@
+import { t } from '#src/i18n/index';
 import { Context, Effect, Layer } from 'effect';
 import { RuntimeContext } from '#src/context';
 import type { DiscordTransport } from '#src/repositories/discord.repository';
@@ -16,7 +17,7 @@ const make = Effect.gen(function* () {
         presence: (count) => transport.presence(count),
         close: () => transport.close(),
       },
-      'Discord',
+      t('discord'),
       settings,
     );
 
@@ -40,7 +41,6 @@ const make = Effect.gen(function* () {
     };
   });
 
-  /** Connect to Discord with the configured credentials. */
   const start = Effect.fn('DiscordService.start')(function* () {
     const transport = context.accounts.repositories.discordRepository.openDiscordTransport(settings(), {
       receive: (channel, author, bot, content) => receiver.receive(channel, author, bot, content),

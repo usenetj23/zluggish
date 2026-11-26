@@ -1,3 +1,4 @@
+import { t } from '#src/i18n/index';
 import { RuntimeContext } from '#src/context';
 import type { notificationUpdateSchema } from '#src/dtos/events.dto';
 import { notificationPayloadSchema, notificationEventSchema } from '#src/dtos/events.dto';
@@ -78,7 +79,6 @@ const make = Effect.gen(function* () {
     yield* updateNotification(JSON.stringify(notification), id);
   });
 
-  /** The invite card for a rider. */
   function profileOf(id: number) {
     const rider = context.profiles.get(id);
 
@@ -271,7 +271,7 @@ const make = Effect.gen(function* () {
           ...input,
           id,
           eventSubgroupId: id,
-          name: `Route #${input.routeId}`,
+          name: t('route', { value1: input.routeId }),
           organizerProfileId: user.player_id,
           organizerId: user.player_id,
           organizerFirstName: organizer.firstName,

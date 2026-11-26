@@ -293,7 +293,6 @@ await test('web riders remove one stored credential and keep the rest', async (t
   assert.equal(await remove('intervals/cookie'), 400);
   assert.equal(await remove('strava/encryption_key'), 400);
 
-  // The other rider keeps every credential.
   assert.equal(f.effects.runSync(connections.has(f.other.player_id, 'strava')), true);
   assert.equal(f.effects.runSync(documents.has(f.other.player_id, 'strava4_session.txt')), true);
   assert.equal(f.effects.runSync(documents.has(f.other.player_id, 'garth/oauth2_token.json')), true);

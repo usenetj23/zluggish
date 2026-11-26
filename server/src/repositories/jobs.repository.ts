@@ -185,7 +185,6 @@ export class JobsRepository {
       .where('lease_expires_at', '>', this.now());
   }
 
-  /** True while this claim still owns the job. */
   valid(claim: Claim) {
     return !!this.executor.get(
       query
@@ -309,7 +308,6 @@ export class RunningJob {
     return String(value);
   }
 
-  /** True while this claim still owns the job. */
   valid() {
     return this.owner.valid(this.claim);
   }

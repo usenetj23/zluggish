@@ -9,7 +9,6 @@ const make = Effect.gen(function* () {
     return files.existsSync(path);
   });
 
-  /** Whether path names a regular file. */
   const isFile = Effect.fn('FilesService.isFile')(function* (path: string) {
     return files.existsSync(path) && files.statSync(path).isFile();
   });
@@ -46,7 +45,6 @@ const make = Effect.gen(function* () {
   return { exists, isFile, size, readStream, read, readText, write };
 });
 
-/** Files in the asset and storage folders. */
 export class FilesService extends Context.Service<FilesService, Effect.Success<typeof make>>()(
   'zluggish/FilesService',
 ) {

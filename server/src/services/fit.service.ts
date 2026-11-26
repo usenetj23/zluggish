@@ -13,7 +13,6 @@ function activityChart(bytes: Uint8Array) {
   return metrics.time(Metric.FitProcessing, () => new FitDecoder().chart(bytes));
 }
 
-/** Chart data computed in the FIT worker thread. */
 function chart(bytes: Uint8Array) {
   return fitWorkers.chart(bytes);
 }

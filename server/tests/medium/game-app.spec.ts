@@ -39,6 +39,36 @@ await test('Svelte SSR dashboard keeps identity, CSRF and static asset boundarie
   }
 });
 
+await test('the launcher links to the web app only when enabled with a public URL', async (t) => {
+  const url = 'https://zwift.example.org:8443';
+
+  for (const { publicUrl, enabled, expected } of [
+    { publicUrl: url, enabled: true, expected: url },
+    { publicUrl: null, enabled: true, expected: null },
+    { publicUrl: url, enabled: false, expected: null },
+  ]) {
+    const f = await mediumFixture(t, publicUrl, enabled);
+    const browser = await mediumBrowser(f);
+
+    for (const path of ['/login/', `/user/${f.rider.username}/`]) {
+      const response = await browser.request(path);
+      const html = await response.text();
+      const link = html.includes('class="web-app');
+      assert.equal(link, expected !== null, path);
+
+      if (expected) {
+        assert.match(html, /<a class="web-app[^"]*" href="https:\/\/zwift\.example\.org:8443"/);
+      }
+
+      const props = Schema.decodeUnknownSync(Schema.Struct({ webApp: Schema.NullOr(Schema.String) }))(
+        JSON.parse(/id="launcher-props">([^<]+)<\/script>/.exec(html)![1]!),
+      );
+
+      assert.equal(props.webApp, expected);
+    }
+  }
+});
+
 await test('the launcher no longer serves the pages that moved to the web app', async (t) => {
   const f = await mediumFixture(t);
   const browser = await mediumBrowser(f);

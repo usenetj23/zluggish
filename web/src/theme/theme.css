@@ -43,7 +43,6 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* The game world, out of focus behind everything, as in the Zwift home screen. */
 body::before {
   content: '';
   position: fixed;
@@ -150,7 +149,6 @@ input[type='checkbox'] {
   vertical-align: middle;
 }
 
-/* Secondary actions are outlined, like Zwift's tab pills. */
 button {
   margin: 1rem 0.5rem 0 0;
   padding: 0.55rem 1.1rem;
@@ -169,7 +167,6 @@ button:hover {
   background: rgb(255 255 255 / 0.12);
 }
 
-/* The one main action on a page is Zwift orange. */
 button.primary {
   border: 0;
   padding: 0.65rem 1.4rem;
@@ -313,7 +310,6 @@ form > .error {
   }
 }
 
-/* The name, with the sign-in email quieter beneath it. */
 .who {
   display: grid;
   gap: 0.15rem;
@@ -361,7 +357,6 @@ form > .error {
   clip: rect(0 0 0 0);
 }
 
-/* The add-user link is the last row. */
 [data-page='login'] nav {
   display: contents;
 }
@@ -385,7 +380,6 @@ form > .error {
   border-color: var(--text);
 }
 
-/* Password step for one user: password and Sign in on one line, the remember checkbox below. */
 [data-page='unlock'] form {
   max-width: 26rem;
 }

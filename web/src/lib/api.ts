@@ -1,3 +1,4 @@
+import { t } from './i18n/shared';
 import { z } from 'zod';
 import type { JsonObject } from './connection';
 
@@ -5,7 +6,6 @@ export type ApiValue = string | number | boolean | null | undefined | Array<ApiV
 
 export type ApiPayload = { [key: string]: ApiValue };
 
-/** Requests JSON from this server and returns the body once it matches the schema. */
 export type Api = <Schema extends z.ZodType>(
   schema: Schema,
   url: string,
@@ -13,7 +13,6 @@ export type Api = <Schema extends z.ZodType>(
   data?: ApiPayload | FormData | Blob,
 ) => Promise<z.output<Schema>>;
 
-/** For requests whose response body the caller does not read. */
 export const ignored = z.unknown();
 
 const optionalString = z.string().optional();
@@ -35,11 +34,10 @@ export function responseFields(body: JsonObject) {
 
 export class UnexpectedResponseError extends Error {
   constructor() {
-    super('The server sent an unexpected response. Reload the page and try again.');
+    super(t('api_unexpected_response'));
   }
 }
 
-/** The body as the schema describes it, or an UnexpectedResponseError. */
 export function decode<Schema extends z.ZodType>(schema: Schema, body: unknown): z.output<Schema> {
   const parsed = schema.safeParse(body);
 

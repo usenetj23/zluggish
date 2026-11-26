@@ -1,3 +1,4 @@
+import { t } from '#src/i18n/index';
 import { Context, Effect, Layer } from 'effect';
 import { RuntimeContext } from '#src/context';
 import type { MatrixTransport } from '#src/repositories/matrix.repository';
@@ -18,7 +19,7 @@ const make = Effect.gen(function* () {
         presence: (count) => transport.presence(count),
         close: () => transport.close(),
       },
-      'Matrix',
+      t('matrix'),
       settings,
     );
 
@@ -34,7 +35,6 @@ const make = Effect.gen(function* () {
     };
   });
 
-  /** Connect to Matrix with the configured credentials. */
   const start = Effect.fn('MatrixService.start')(function* () {
     const transport = context.accounts.repositories.matrixRepository.openMatrixTransport(
       settings(),

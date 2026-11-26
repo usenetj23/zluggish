@@ -1,3 +1,4 @@
+import { t } from '#src/i18n/index';
 import { normalizeLoginName } from '#src/dtos/management.dto';
 import { atomic } from '#src/db/transaction';
 import { integer } from '#src/db/values';
@@ -79,7 +80,6 @@ export class AccountsRepository {
     return matches.length === 1 ? (matches[0] ?? null) : null;
   }
 
-  /** Every rider whose login name normalizes to the same value. */
   sameLoginName(username: string) {
     const wanted = normalizeLoginName(username);
 
@@ -93,7 +93,7 @@ export class AccountsRepository {
   // Offline recovery preserves disabled state unless administrator access is requested.
   setPassword(id: number, hash: string | null, admin: boolean) {
     if (!hash) {
-      throw new Error('A password is required');
+      throw new Error(t('password_required'));
     }
     atomic(this.db, () => {
       this.executor.run(

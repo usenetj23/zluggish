@@ -8,14 +8,27 @@ import { runtimeFixture } from '#tests/support/runtime';
 import { createWebApp } from '#src/http/web-app';
 import type { User } from '#src/repositories/accounts.repository';
 import type { JsonValue } from '#src/dtos/management.dto';
+import { activityFolder } from '#src/activity-storage';
+import { writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 
-export async function mediumFixture(t: TestContext) {
+export async function mediumFixture(t: TestContext, publicUrl: string | null = null, webEnabled = true) {
   const network = t.mock.method(globalThis, 'fetch', () => {
     throw new Error('Unexpected external request in medium test');
   });
 
   t.after(() => assert.equal(network.mock.callCount(), 0, 'External providers must be explicitly mocked'));
-  const f = runtimeFixture(t);
+  const f = runtimeFixture(t, publicUrl, webEnabled);
+  // Runtime lifecycle tests must not schedule real release checks against external providers.
+  const empty = { apkmirror: null, apkpure: null, errors: { apkmirror: null, apkpure: null } };
+  writeFileSync(
+    resolve(f.config.storageDir, 'app-releases.json'),
+    JSON.stringify({
+      enabled: false,
+      checkedAt: null,
+      apps: { zwift: empty, companion: empty },
+    }),
+  );
   const rider = await f.accounts.create('Medium Rider', 'test-password');
   const other = await f.accounts.create('Other Rider', 'test-password');
   const headers = (user = rider) => ({ Authorization: `Bearer ${f.sessions.tokens(user, f.tokens).access_token}` });
@@ -84,7 +97,6 @@ export async function mediumBrowser(f: Awaited<ReturnType<typeof mediumFixture>>
   });
 
   assert.equal(selected.status, 302);
-  // The dashboard carries the new session's token.
   const dashboard = await request(selected.headers.get('Location')!);
   assert.equal(dashboard.status, 200);
 
@@ -99,24 +111,44 @@ export function mediumWeb(f: ReturnType<typeof runtimeFixture>, rider: User) {
     WebSessionsService.use((sessions) => sessions.create(f.accounts.identityOf(rider))),
   );
 
-  const request = (path: string, method = 'GET', data?: FormData | Record<string, JsonValue>, csrf = session.csrf) => {
+  const request = (
+    path: string,
+    method = 'GET',
+    data?: FormData | Uint8Array<ArrayBuffer> | Record<string, JsonValue>,
+    csrf = session.csrf,
+  ) => {
     const headers = new Headers({
       Cookie: `zluggish_web_session=${id}`,
       Origin: 'http://local:8080',
       'X-CSRF-Token': csrf,
     });
 
-    // Fetch sets the multipart boundary itself.
-    if (!(data instanceof FormData)) {
+    // Fetch sets the multipart boundary itself; raw bytes go up as a file.
+    if (data instanceof Uint8Array) {
+      headers.set('Content-Type', 'application/octet-stream');
+    } else if (!(data instanceof FormData)) {
       headers.set('Content-Type', 'application/json');
     }
 
     return app.request(`http://local:8080${path}`, {
       method,
       headers,
-      ...(data && { body: data instanceof FormData ? data : JSON.stringify(data) }),
+      ...(data && {
+        body: data instanceof FormData || data instanceof Uint8Array ? data : JSON.stringify(data),
+      }),
     });
   };
 
   return { app, request };
+}
+
+/** The folder of an activity in the new layout; assigns its name like the server does. */
+export function activityFolderOf(
+  f: Pick<ReturnType<typeof runtimeFixture>, 'accounts' | 'profiles'>,
+  activity: number | bigint,
+) {
+  const stored = f.accounts.repositories.activitiesRepository.storageDirectory(activity);
+  assert.ok(stored, `activity ${activity} exists`);
+
+  return activityFolder(f.profiles.folder(stored.player), stored.directory);
 }

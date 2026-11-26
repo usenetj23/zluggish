@@ -1,3 +1,4 @@
+import { t } from '#src/i18n/index';
 import { Context, Effect, Fiber, Layer } from 'effect';
 import type { JobType } from '#src/enum';
 import { RuntimeContext } from '#src/context';
@@ -39,7 +40,13 @@ const make = Effect.gen(function* () {
     kicked = true;
     setImmediate(() => {
       kicked = false;
-      poll();
+      try {
+        poll();
+      } catch (error) {
+        context.world.lifecycle.log.warn('job.poll_failed', 'Background job poll failed', {
+          error: error instanceof Error ? error : String(error),
+        });
+      }
     });
   }
 
@@ -81,12 +88,26 @@ const make = Effect.gen(function* () {
     const controller = new AbortController();
     controllers.add(controller);
     const job = new RunningJob(claim, controller.signal, jobs);
+    let renewalFailure: JobError | undefined;
 
     // Renew while the handler runs. A failed renewal stops the handler: another claim
     // may own the job now.
     const renewal = setInterval(() => {
-      if (!jobs.renew(claim, leaseMs)) {
-        controller.abort(new JobError({ code: 'lease_lost' }));
+      if (renewalFailure) {
+        return;
+      }
+      try {
+        if (!jobs.renew(claim, leaseMs)) {
+          controller.abort(new JobError({ code: 'lease_lost' }));
+        }
+      } catch (error) {
+        renewalFailure = new JobError({ code: 'lease_renewal_failed' });
+        controller.abort(renewalFailure);
+        context.world.lifecycle.log.warn('job.renewal_failed', 'Background job lease renewal failed', {
+          jobId: claim.id,
+          type: claim.type,
+          error: error instanceof Error ? error : String(error),
+        });
       }
     }, leaseMs / 3);
 
@@ -94,6 +115,10 @@ const make = Effect.gen(function* () {
 
     try {
       await Effect.runPromise(handler.run(job));
+
+      if (renewalFailure) {
+        throw renewalFailure;
+      }
 
       if (!job.done) {
         job.commit();
@@ -156,7 +181,6 @@ const make = Effect.gen(function* () {
       return jobs.enqueue(type, payload, delayMs);
     }),
 
-    /** Poll for ready jobs every interval until close. */
     start: Effect.fn('JobsService.start')(function* (intervalMs: number = 1000) {
       if (status === 'stopped' || poller) {
         return;
@@ -170,7 +194,6 @@ const make = Effect.gen(function* () {
       poll();
     }),
 
-    /** True while a handler runs or a ready job waits. */
     busy: Effect.fn('JobsService.busy')(function* () {
       if (running.size > 0) {
         return true;
@@ -189,7 +212,7 @@ const make = Effect.gen(function* () {
       const handler = handlers.get(claim.type);
 
       if (!handler) {
-        return yield* Effect.die(new Error('No handler for this job type'));
+        return yield* Effect.die(new Error(t('jobs_handler_missing')));
       }
 
       yield* Effect.promise(() => execute(claim, handler));

@@ -101,7 +101,6 @@ await test('services and repositories expose operations through classes', () => 
         }
         assert.ok(!ts.isFunctionDeclaration(statement), `${file} exports a standalone operation`);
 
-        // Services are Effect services: Context.Service classes.
         if (layer === 'services' && ts.isClassDeclaration(statement)) {
           assert.ok(
             statement.heritageClauses?.some(

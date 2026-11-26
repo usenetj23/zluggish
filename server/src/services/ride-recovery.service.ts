@@ -40,7 +40,6 @@ const make = Effect.gen(function* () {
     timer.unref();
   }
 
-  /** Append the history samples recorded since the last checkpoint. */
   async function checkpoint() {
     merge();
     const appends = [];
@@ -157,7 +156,6 @@ const make = Effect.gen(function* () {
     start: Effect.fn('RideRecoveryService.start')(function* () {
       return start();
     }),
-    /** Append the history samples recorded since the last checkpoint. */
     checkpoint: Effect.fn('RideRecoveryService.checkpoint')(function* () {
       return yield* Effect.promise(() => checkpoint());
     }),

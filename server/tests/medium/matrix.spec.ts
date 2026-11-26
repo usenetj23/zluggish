@@ -20,7 +20,6 @@ import { test } from 'node:test';
 import type { TestContext } from 'node:test';
 import { Effect, Layer, Schema } from 'effect';
 
-/** The Matrix service over the given runtime context. */
 function matrixService(context: RepositoryContext) {
   return Effect.runSync(
     Effect.gen(function* () {

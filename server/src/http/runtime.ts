@@ -4,7 +4,6 @@ import type { User } from '#src/repositories/accounts.repository';
 import type { BrowserSession } from '#src/services/browser-session.service';
 
 export interface Runtime extends RepositoryContext {
-  /** Runs application effects with every service provided. */
   effects: AppRuntime;
 }
 

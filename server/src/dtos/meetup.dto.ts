@@ -63,7 +63,6 @@ export type Meetup = Types.DeepMutable<typeof storedSchema.Type>;
 
 export type MeetupInput = Types.DeepMutable<typeof inputSchema.Type>;
 
-/** Meetups are changed in place before they are saved again. */
 export const decodeMeetup = decodeOwned(storedSchema);
 
 export const decodeMeetupInput = decodeOwned(inputSchema);

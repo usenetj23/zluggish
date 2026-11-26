@@ -52,13 +52,13 @@ export function eventRoutes(app: Hono<RuntimeEnv>, runtime: Runtime) {
   appRoutes.get('/api/event-feed', (c) =>
     Effect.gen(function* () {
       const eventsService = yield* EventsService;
+      const events = yield* eventsService.eventsAt(runtime.assets, limit(c.req.query('limit')), c.req.query('sport'));
+      const data = yield* Effect.forEach(events, (event) =>
+        eventsService.eventJSON(event).pipe(Effect.map((event) => ({ event }))),
+      );
 
       return c.json({
-        data: (yield* eventsService.eventsAt(runtime.assets, limit(c.req.query('limit')), c.req.query('sport'))).map(
-          (event) => ({
-            event: eventsService.eventJSON(event),
-          }),
-        ),
+        data,
         cursor: null,
       });
     }),

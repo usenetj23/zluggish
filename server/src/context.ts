@@ -20,5 +20,4 @@ export interface RepositoryContext {
   tokens: { access: string; refresh: string; id: string };
 }
 
-/** The runtime context as an Effect service. Services read the parts they need from it. */
 export class RuntimeContext extends Context.Service<RuntimeContext, RepositoryContext>()('zluggish/RuntimeContext') {}

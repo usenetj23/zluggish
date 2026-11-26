@@ -27,7 +27,13 @@ export interface GameForm {
   /** Inputs are not saved settings (such as a sign-in password), so the form never reports unsaved changes. */
   transient?: boolean;
   /** The user-list row: avatar, plus the sign-in email under the name when the user has a real one. */
-  user?: { initials: string; photo: string | null; email: string | null };
+  user?: {
+    initials: string;
+    photo: string | null;
+    email: string | null;
+    /** The rider's workout planned for today, when one is synced. */
+    workout?: { name: string; minutes: number } | null;
+  };
 }
 
 export interface GamePageModel {
@@ -37,6 +43,8 @@ export interface GamePageModel {
   /** The server's release version, shown in the top bar. */
   version: string;
   zwiftVersion?: string;
+  /** Where riders open the web app, from the configured public URL. Absent when none is set. */
+  webApp?: string | null;
   forms: Array<GameForm>;
   /** Shown as a back button beside the title; it navigates and never signs out. */
   back?: { href: string; label: string };

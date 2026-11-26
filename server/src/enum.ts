@@ -93,13 +93,6 @@ export const ImportState = {
 
 export type ImportState = (typeof ImportState)[keyof typeof ImportState];
 
-export const LogFormat = {
-  Pretty: 'pretty',
-  Json: 'json',
-} as const;
-
-export type LogFormat = (typeof LogFormat)[keyof typeof LogFormat];
-
 export const LogLevel = {
   Verbose: 'VERBOSE',
   Info: 'INFO',
@@ -217,6 +210,7 @@ export const RiderDocumentName = {
   GarthOauth2TokenJson: 'garth/oauth2_token.json',
   EncryptionKeyBin: 'encryption_key.bin',
   RelayAuthVersion: 'relay-auth-version',
+  RelayNonceHistory: 'relay-nonce-history',
 } as const;
 
 export type RiderDocumentName = (typeof RiderDocumentName)[keyof typeof RiderDocumentName];
@@ -240,6 +234,7 @@ export const JobType = {
   Retention: 'retention',
   StorageBackup: 'storage_backup',
   CompletionDeliveries: 'completion_deliveries',
+  AppReleaseCheck: 'app_release_check',
 } as const;
 
 export type JobType = (typeof JobType)[keyof typeof JobType];

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../lib/i18n/index';
   import type { Climb } from './climbs';
   import ClimbProfile from './ClimbProfile.svelte';
 
@@ -8,39 +9,37 @@
 <div class="detail">
   <dl class="facts">
     {#if climb.distanceKm !== null}
-      <dt>Distance</dt>
-      <dd>{climb.distanceKm} km</dd>
+      <dt>{t('distance')}</dt>
+      <dd>{t('km', { value1: climb.distanceKm })}</dd>
     {/if}
     {#if climb.elevationM !== null}
-      <dt>Climbing</dt>
-      <dd>{climb.elevationM} m</dd>
+      <dt>{t('climb_ascent')}</dt>
+      <dd>{t('m', { value1: climb.elevationM })}</dd>
     {/if}
     {#if climb.avgGradePct !== null}
-      <dt>Average grade</dt>
+      <dt>{t('climb_average_grade')}</dt>
       <dd>{climb.avgGradePct.toFixed(1)}%</dd>
     {/if}
     {#if climb.maxGradePct !== null}
-      <dt>Max grade</dt>
+      <dt>{t('climb_max_grade')}</dt>
       <dd>{climb.maxGradePct.toFixed(1)}%</dd>
     {/if}
-    <dt>Category</dt>
-    <dd>{climb.category ?? 'None'}</dd>
+    <dt>{t('category')}</dt>
+    <dd>{climb.category ?? t('none')}</dd>
     {#if climb.elevationLowM !== null}
-      <dt>Lowest</dt>
-      <dd>{climb.elevationLowM} m</dd>
+      <dt>{t('lowest')}</dt>
+      <dd>{t('m', { value1: climb.elevationLowM })}</dd>
     {/if}
     {#if climb.elevationHighM !== null}
-      <dt>Highest</dt>
-      <dd>{climb.elevationHighM} m</dd>
+      <dt>{t('highest')}</dt>
+      <dd>{t('m', { value1: climb.elevationHighM })}</dd>
     {/if}
   </dl>
 
-  <ClimbProfile points={climb.profile} label={`Elevation profile of ${climb.name}`} />
+  <ClimbProfile points={climb.profile} label={t('climb_elevation_profile', { value1: climb.name })} />
 
   <p class="source" class:imported={climb.profileSource === 'imported'}>
-    {climb.profileSource === 'imported'
-      ? 'Profile from the climb data'
-      : 'Straight-line estimate, no recorded profile yet'}
+    {climb.profileSource === 'imported' ? t('climb_profile_imported') : t('climb_profile_estimated')}
   </p>
 </div>
 

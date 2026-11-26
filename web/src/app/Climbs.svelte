@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { t } from '../lib/i18n/index';
+  import SlowLoading from '../components/SlowLoading.svelte';
   import { onMount } from 'svelte';
   import type { Api } from '../lib/api';
   import { categoryTabs, climbsResponse, clock, day, matchesTab, tabOf } from './climbs';
@@ -28,22 +30,22 @@
   const gradient = (climb: Climb) =>
     climb.distanceKm && climb.elevationM !== null ? climb.elevationM / (climb.distanceKm * 10) : null;
 
-  const plural = (count: number, word: string) => `${count} ${word}${count === 1 ? '' : 's'}`;
+  const plural = (count: number) => t('ride_count', { value1: count, value2: count === 1 ? t('ride') : t('rides') });
 
   const tabLabel = (tab: CategoryTab): string => {
     if (tab === 'all') {
-      return 'All';
+      return t('server_logs_all');
     }
 
     if (tab === 'none') {
-      return 'Uncategorised';
+      return t('uncategorised');
     }
 
     if (tab === 'HC') {
-      return 'HC';
+      return t('climb_hc');
     }
 
-    return `Cat ${tab}`;
+    return t('climb_category_short', { value1: tab });
   };
 
   const countForTab = (tab: CategoryTab): number => {
@@ -111,25 +113,25 @@
       total = body.total;
       climbs = body.climbs;
     } catch (error) {
-      failure = error instanceof Error ? error.message : 'Climbs could not be loaded.';
+      failure = error instanceof Error ? error.message : t('climbs_load_error');
     }
   });
 </script>
 
 {#if failure}<p class="notice failed" role="alert">{failure}</p>{/if}
 {#if climbs === null}
-  {#if !failure}<p class="delayed" role="status">Loading climbs…</p>{/if}
+  {#if !failure}<SlowLoading />{/if}
 {:else if climbs.length === 0}
   <section class="panel narrow">
-    <h2>No climb portals ridden yet</h2>
+    <h2>{t('climbs_empty')}</h2>
     <p>
-      Pick a climb under Climb in the launcher before you start riding. Once you reach the top, it shows up here with
-      your time.
+      {t('climbs_empty_hint_prefix')} <strong>{t('climb')}</strong>
+      {t('climbs_empty_hint_suffix')}
     </p>
   </section>
 {:else}
-  <section class="climbs" aria-label="Climb portals">
-    <div class="tabs" role="tablist" aria-label="Climb category">
+  <section class="climbs" aria-label={t('climb_portals')}>
+    <div class="tabs" role="tablist" aria-label={t('climb_category')}>
       {#each categoryTabs as tab, i (tab)}
         <button
           bind:this={tabButtons[i]}
@@ -154,7 +156,10 @@
           <div class="row">
             <p class="height">
               {#if climb.elevationM !== null}
-                <strong>{climb.elevationM.toLocaleString()} m<span class="hidden"> climbing</span></strong>
+                <strong
+                  >{t('m', { value1: climb.elevationM.toLocaleString() })}<span class="hidden">{t('climbing')}</span
+                  ></strong
+                >
               {/if}
             </p>
 
@@ -168,10 +173,10 @@
               >
                 <h3>{climb.name}</h3>
                 {#if climb.profileSource === 'imported'}
-                  <span class="tag">Real profile</span>
+                  <span class="tag">{t('climb_real_profile')}</span>
                 {/if}
                 {#if climb.distanceKm !== null && grade !== null}
-                  <p>{climb.distanceKm} km at {grade.toFixed(1)}%</p>
+                  <p>{t('km_at', { value1: climb.distanceKm, value2: grade.toFixed(1) })}</p>
                 {/if}
               </button>
             </div>
@@ -179,16 +184,16 @@
             <p class="best">
               {#if climb.bestMs !== null}
                 <strong>{clock(climb.bestMs)}</strong>
-                <span>best of {climb.rides}</span>
+                <span>{t('best_of', { value1: climb.rides })}</span>
               {:else}
-                <strong class="none">No time</strong>
+                <strong class="none">{t('no_time')}</strong>
               {/if}
             </p>
 
             <p class="last">
               {#if climb.lastRide}
                 <strong><time datetime={climb.lastRide}>{day(climb.lastRide)}</time></strong>
-                <span>last ride</span>
+                <span>{t('last_ride')}</span>
               {/if}
             </p>
 
@@ -199,16 +204,16 @@
                     href={segment(climb.strava.watopia)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label="{climb.name} on Strava, ridden from Watopia">Watopia</a
+                    aria-label={t('climb_strava_watopia', { value1: climb.name })}>{t('watopia')}</a
                   >
                   <a
                     href={segment(climb.strava.france)}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label="{climb.name} on Strava, ridden from France">France</a
+                    aria-label={t('climb_strava_france', { value1: climb.name })}>{t('france')}</a
                   >
                 </span>
-                <span>on Strava</span>
+                <span>{t('strava_link_suffix')}</span>
               </p>
             {/if}
           </div>
@@ -223,24 +228,16 @@
     </ul>
 
     {#if filtered.length === 0}
-      <p class="empty-tab">No climbs in this category yet.</p>
+      <p class="empty-tab">{t('climb_category_empty')}</p>
     {/if}
 
-    <p class="summary">{climbs.length} of {total} climb portals ridden, {plural(rides, 'ride')}</p>
+    <p class="summary">
+      {t('of_climb_portals_ridden', { value1: climbs.length, value2: total, value3: plural(rides) })}
+    </p>
   </section>
 {/if}
 
 <style>
-  .delayed {
-    animation: reveal 150ms ease-out 400ms both;
-  }
-  @keyframes reveal {
-    from {
-      opacity: 0;
-      visibility: hidden;
-    }
-  }
-
   .panel {
     background: var(--glass);
     border-radius: 12px;
@@ -457,12 +454,6 @@
     }
     .last strong {
       font-weight: 600;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .delayed {
-      animation: none;
     }
   }
 </style>

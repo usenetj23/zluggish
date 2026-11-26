@@ -31,7 +31,6 @@ const make = Effect.gen(function* () {
       return records.findPrivateEvent(id);
     }),
 
-    /** The rider's segment results, optionally for one sport and one segment. */
     mine: Effect.fn('RecordsService.mine')(function* (playerId: number, sport?: string, segment?: string) {
       return records
         .riderSegments(
@@ -56,7 +55,6 @@ const make = Effect.gen(function* () {
   };
 });
 
-/** Route results, segment results and leaderboards. */
 export class RecordsService extends Context.Service<RecordsService, Effect.Success<typeof make>>()(
   'zluggish/RecordsService',
 ) {

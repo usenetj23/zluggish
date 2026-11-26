@@ -65,7 +65,6 @@ await test('a client that trusts the certificate connects for every Zwift name a
   assert.equal(await handshake(material.cert, 'secure.zwift.com'), true);
   assert.equal(await handshake(material.cert, 'us-or-rly101.zwift.com'), true);
   assert.equal(await handshake(material.cert, 'example.com'), false);
-  // Another server's certificate is not trusted in its place.
   const other = await repository.create({ serverId: 'ffffffffffff', years: 5, now });
   assert.equal(await handshake(other.cert, 'secure.zwift.com'), false);
 });

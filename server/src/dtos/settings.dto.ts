@@ -4,6 +4,7 @@ import { Schema } from 'effect';
 
 export const overrideSchema = Schema.Struct({
   'ghosts.enabled': Schema.optional(Schema.Boolean),
+  'uploads.intervals.enabled': Schema.optional(Schema.Boolean),
   'uploads.zwift.enabled': Schema.optional(Schema.Boolean),
   'uploads.strava.method': Schema.optional(Schema.Enum(StravaMethod)),
   'devices.zwiftClick.enabled': Schema.optional(Schema.Boolean),
@@ -27,7 +28,6 @@ export const preferenceSchema = Schema.Struct({
 
 export type Preference = typeof preferenceSchema.Type;
 
-/** Overrides reject keys they do not declare. */
 export const decodeOverrides = Schema.decodeUnknownSync(overrideSchema, strict);
 
 export const decodePreference = Schema.decodeUnknownSync(preferenceSchema, strict);

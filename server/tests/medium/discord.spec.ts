@@ -12,7 +12,6 @@ import { create, fromBinary } from '@bufbuild/protobuf';
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 
-/** The Discord service over the given runtime context. */
 function discordService(context: RepositoryContext) {
   return Effect.runSync(
     Effect.gen(function* () {

@@ -84,7 +84,6 @@ export class RecordsRepository {
     }
   }
 
-  /** Fastest results first, for one segment when given, since a world time when given. */
   segmentLeaderboard(segment: bigint | null, since: bigint | null) {
     let selection = query.selectFrom('segment_result').selectAll();
 
@@ -99,7 +98,6 @@ export class RecordsRepository {
     return this.executor.all(selection.orderBy('elapsed_ms'), true);
   }
 
-  /** One rider's results, optionally for one segment and sport. */
   riderSegments(player: bigint, segment: bigint | null, sport: number | null) {
     let selection = query.selectFrom('segment_result').selectAll().where('player_id', '=', player);
 

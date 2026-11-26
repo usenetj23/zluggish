@@ -21,7 +21,6 @@ export class StateHistory {
     return this.encoded.length;
   }
 
-  /** Appends a copy of state, dropping the oldest sample past the limit. */
   push(state: PlayerState) {
     this.encoded.push(toBinary(PlayerStateSchema, state));
     this.times.push(state.worldTime);
@@ -33,7 +32,6 @@ export class StateHistory {
     this.times.shift();
   }
 
-  /** Puts earlier states in front, keeping the newest `limit` samples. */
   prepend(states: ReadonlyArray<PlayerState>) {
     this.encoded = [...states.map((state) => toBinary(PlayerStateSchema, state)), ...this.encoded].slice(-this.limit);
     this.times = [...states.map((state) => state.worldTime), ...this.times].slice(-this.limit);
@@ -43,7 +41,6 @@ export class StateHistory {
     return this.times.at(index);
   }
 
-  /** A fresh, independently mutable copy. */
   state(index: number) {
     const bytes = this.encoded.at(index);
 
@@ -54,7 +51,6 @@ export class StateHistory {
     return this.encoded.map((bytes) => fromBinary(PlayerStateSchema, bytes));
   }
 
-  /** Encoded samples newer than worldTime, oldest first. */
   since(worldTime: bigint) {
     return this.encoded.filter((_, index) => (this.times[index] ?? 0n) > worldTime);
   }

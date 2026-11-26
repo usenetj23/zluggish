@@ -85,7 +85,7 @@ await test('web imports isolate staged data, require CSRF and source confirmatio
   assert.equal(f.profiles.get(f.rider.player_id).id, BigInt(f.rider.player_id));
   assert.equal(f.profiles.get(f.rider.player_id).totalXp, 500);
   assert.equal(f.accounts.get(f.rider.player_id)?.auth_version, f.rider.auth_version);
-  assert.equal(await responseStatus(request('/import')), 200);
+  assert.equal(await responseStatus(request('/profile-data')), 200);
   assert.equal(await responseStatus(request('/zwift')), 200);
 });
 

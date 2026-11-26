@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../lib/i18n/index';
   import { gradeBand } from './climbs';
 
   let { points, label }: { points: Array<[number, number]>; label: string } = $props();
@@ -70,10 +71,10 @@
         stroke-width="1"
       />
 
-      <text x="5" y={profileData.baseline - 4} class="label">{profileData.minElev} m</text>
-      <text x="5" y={profileData.padT + 12} class="label">{profileData.maxElev} m</text>
+      <text x="5" y={profileData.baseline - 4} class="label">{t('m', { value1: profileData.minElev })}</text>
+      <text x="5" y={profileData.padT + 12} class="label">{t('m', { value1: profileData.maxElev })}</text>
       <text x="795" y={profileData.baseline - 4} text-anchor="end" class="label">
-        {profileData.totalKm.toFixed(1)} km
+        {t('km', { value1: profileData.totalKm.toFixed(1) })}
       </text>
     </svg>
   </div>

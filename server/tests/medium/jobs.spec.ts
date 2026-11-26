@@ -7,7 +7,7 @@ import { ActivitySchema } from '#src/protocol/generated/activity_pb';
 import { JobsRepository } from '#src/repositories/jobs.repository';
 import { JobsService } from '#src/services/jobs.service';
 import { UploadsService } from '#src/services/uploads.service';
-import { binary, mediumFixture } from '#tests/medium/support';
+import { activityFolderOf, binary, mediumFixture } from '#tests/medium/support';
 import { create } from '@bufbuild/protobuf';
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync, rmSync } from 'node:fs';
@@ -15,7 +15,6 @@ import { resolve } from 'node:path';
 import { test } from 'node:test';
 import { Effect, Layer, Schema } from 'effect';
 
-/** A job runner of its own for the fixture, with no handlers registered. */
 function jobRunner(f: Awaited<ReturnType<typeof mediumFixture>>) {
   return Effect.runSync(
     Effect.gen(function* () {
@@ -73,7 +72,6 @@ await test('a stopped process does not lose its job; a new claim runs it after t
   const first = jobs.claim('retention', 30_000);
   assert.ok(first);
   assert.equal(jobs.claim('retention', 30_000), null, 'a valid lease blocks another claim');
-  // The process stops: nothing finishes the claim. A restart claims again after expiry.
   now += 30_000;
   const second = jobs.claim('retention', 30_000);
   assert.ok(second);
@@ -107,7 +105,7 @@ await test('an old handler after lease expiry and a new claim cannot commit or p
 
   // File results: an old claim's attempt-specific file is never published.
   const id = await completed(f);
-  const export_ = resolve(f.profiles.folder(f.rider.player_id), 'fit', `${id} - ride.fit`);
+  const export_ = resolve(activityFolderOf(f, id), 'activity.fit');
   await f.effects.runPromise(JobsService.use((service) => service.drain()));
   rmSync(export_);
   const repository = f.accounts.repositories.jobsRepository;
@@ -143,7 +141,7 @@ await test('a delivery lease expiry does not authorize a second send', async (t)
   const jobs = jobRunner(f);
   f.effects.runSync(UploadsService.use((uploads) => uploads.registerJobs(jobs)));
 
-  const first = repository.claim('delivery', 50);
+  const first = repository.claim('delivery', 30_000);
   assert.ok(first);
   const sending = Effect.runPromise(jobs.run(first));
 
@@ -156,9 +154,7 @@ await test('a delivery lease expiry does not authorize a second send', async (t)
   );
 
   // The lease expires during the request: a replacement claim must not send again.
-  await new Promise((resolve) => {
-    setTimeout(resolve, 60);
-  });
+  f.accounts.db.prepare('UPDATE job SET lease_expires_at = 0 WHERE id = ?').run(first.id);
   const second = repository.claim('delivery', 30_000);
   assert.ok(second);
   await Effect.runPromise(jobs.run(second));
@@ -267,4 +263,91 @@ await test('a job that cannot succeed fails at once, and each type runs at most 
     repository.list('power_curve').map((job) => [job.state, job.attempts]),
     [['failed', 1]],
   );
+});
+
+for (const replaced of [false, true]) {
+  await test(`a throwing lease renewal aborts and fences the job (replaced: ${replaced})`, async (t) => {
+    const f = await mediumFixture(t);
+    const jobs = jobRunner(f);
+    const repository = f.accounts.repositories.jobsRepository;
+    const started = Promise.withResolvers<void>();
+    const finish = Promise.withResolvers<void>();
+    let signal: AbortSignal | undefined;
+    const warnings = t.mock.method(f.world.lifecycle.log, 'warn');
+    const failure = new Error('injected renewal DB failure');
+    const renew = t.mock.method(repository, 'renew', () => {
+      throw failure;
+    });
+    t.mock.timers.enable({ apis: ['setInterval'] });
+
+    Effect.runSync(
+      jobs.register('retention', {
+        concurrency: 1,
+        attempts: 3,
+        timeoutMs: 60_000,
+        run: (job) =>
+          Effect.promise(async () => {
+            signal = job.signal;
+            started.resolve();
+            await finish.promise;
+          }),
+      }),
+    );
+    repository.enqueue('retention', {});
+    const claim = repository.claim('retention', 30_000);
+    assert.ok(claim);
+    const running = Effect.runPromise(jobs.run(claim));
+    await started.promise;
+    t.mock.timers.tick(10_000);
+    assert.equal(signal?.aborted, true);
+    assert.ok(signal?.reason instanceof JobError);
+    assert.equal(signal.reason.code, 'lease_renewal_failed');
+    t.mock.timers.tick(10_000);
+    assert.equal(renew.mock.callCount(), 1, 'an aborted job stops renewing');
+    assert.ok(
+      warnings.mock.calls.some(({ arguments: args }) => args[0] === 'job.renewal_failed' && args[2]?.error === failure),
+    );
+
+    if (replaced) {
+      f.accounts.db.exec('UPDATE job SET lease_expires_at=0');
+      const replacement = repository.claim('retention', 30_000);
+      assert.ok(replacement);
+      finish.resolve();
+      await running;
+      assert.equal(repository.valid(replacement), true, 'the old attempt cannot retry or finish the new claim');
+      assert.equal(repository.finish(replacement), true);
+    } else {
+      finish.resolve();
+      await running;
+      const [row] = repository.list();
+      assert.equal(row?.state, 'queued');
+      assert.equal(row?.last_error, 'lease_renewal_failed');
+      assert.ok(row && row.next_run_at > Date.now(), 'normal retry backoff is retained');
+      assert.equal(repository.claim('retention', 30_000), null);
+    }
+    t.mock.timers.tick(30_000);
+    assert.equal(renew.mock.callCount(), 1, 'cleanup removes the timer');
+  });
+}
+
+await test('a kicked poll contains database errors and can poll again', async (t) => {
+  const f = await mediumFixture(t);
+  const jobs = jobRunner(f);
+  const repository = f.accounts.repositories.jobsRepository;
+  const warnings = t.mock.method(f.world.lifecycle.log, 'warn');
+  Effect.runSync(jobs.start(60_000));
+  const ready = t.mock.method(repository, 'ready', () => {
+    throw new Error('injected poll DB failure');
+  });
+  Effect.runSync(jobs.kick());
+  await new Promise<void>((resolve) => {
+    setImmediate(resolve);
+  });
+  assert.ok(warnings.mock.calls.some(({ arguments: args }) => args[0] === 'job.poll_failed'));
+  ready.mock.restore();
+  Effect.runSync(jobs.kick());
+  await new Promise<void>((resolve) => {
+    setImmediate(resolve);
+  });
+  await Effect.runPromise(jobs.close());
 });

@@ -1,3 +1,4 @@
+import { t } from '#src/i18n/index';
 import { isIntervalsAthleteId } from '#src/dtos/intervals.dto';
 import { RuntimeContext } from '#src/context';
 import { UploadProvider, UploadState } from '#src/enum';
@@ -7,6 +8,7 @@ import { ApplicationError, DeliveryRefusedError, refused, UnreadableCredentialsE
 import type { Activity } from '#src/protocol/generated/activity_pb';
 import { ActivitySchema } from '#src/protocol/generated/activity_pb';
 import { PlayerProfileSchema } from '#src/protocol/generated/profile_pb';
+import { activityFolder, imagePath, videoPath } from '#src/activity-storage';
 import { SystemFlag } from '#src/repositories/system-flag.repository';
 import type { Delivery } from '#src/repositories/uploads.repository';
 import { officialRelay } from '#src/repositories/zwift.repository';
@@ -17,7 +19,6 @@ import { SettingsService } from '#src/services/settings.service';
 import type { StoredEntry } from '#src/dtos/workout.dto';
 import { WorkoutsService } from '#src/services/workout.service';
 import { clearField, clone, fromBinary, toBinary } from '@bufbuild/protobuf';
-import { resolve } from 'node:path';
 import { Context, Effect, Layer, Schema } from 'effect';
 
 const isoDate = (value: string | null | undefined) =>
@@ -82,7 +83,6 @@ const make = Effect.gen(function* () {
   const workoutsService = yield* WorkoutsService;
   const jobs = yield* JobsService;
 
-  /** Providers with current credentials and consent for this rider. */
   function configured(player: number) {
     const settings = SettingsService.resolveRiderSettings(context.config.riderDefaults, context.settings.read(player));
 
@@ -103,7 +103,7 @@ const make = Effect.gen(function* () {
       providers.push('runalyze');
     }
 
-    if (repositories.connectionsRepository.has(player, 'intervals')) {
+    if (settings.uploads.intervals.enabled && repositories.connectionsRepository.has(player, 'intervals')) {
       providers.push('intervals');
     }
 
@@ -127,7 +127,6 @@ const make = Effect.gen(function* () {
     );
   }
 
-  /** Each configured provider with this activity's delivery to it, if any. */
   function forActivity(player: number, activity: number) {
     return configured(player).map((provider) => {
       const delivery = repositories.uploadsRepository.get(activity, provider);
@@ -144,18 +143,21 @@ const make = Effect.gen(function* () {
       const stored = repositories.activitiesRepository.fit(activity);
 
       if (!stored || stored.player !== player) {
-        throw new ApplicationError({ status: 404, message: 'Activity not found.' });
+        throw new ApplicationError({ status: 404, message: t('activity_not_found') });
       }
 
       if (!stored.fit?.length || !uploadPayload(activity)) {
         throw new ApplicationError({
           status: 409,
-          message: 'Only a finished activity with a FIT file can be uploaded.',
+          message: t('uploads_activity_not_uploadable'),
         });
       }
 
       if (!configured(player).includes(provider)) {
-        throw new ApplicationError({ status: 409, message: 'Connect this service in Integrations first.' });
+        throw new ApplicationError({
+          status: 409,
+          message: t('uploads_connection_required'),
+        });
       }
       const state = repositories.uploadsRepository.get(activity, provider)?.state;
 
@@ -166,7 +168,7 @@ const make = Effect.gen(function* () {
       if ((state === 'sent' || state === 'ambiguous') && !again) {
         throw new ApplicationError({
           status: 409,
-          message: 'This activity may already be there. Confirm to upload it again.',
+          message: t('uploads_duplicate_confirmation_required'),
         });
       }
 
@@ -258,7 +260,6 @@ const make = Effect.gen(function* () {
     }
   }
 
-  /** Run ready delivery jobs now. */
   async function drain() {
     await Effect.runPromise(jobs.drain());
   }
@@ -386,20 +387,23 @@ const make = Effect.gen(function* () {
 
   /** Ready photos and videos only: a reserved row may have no complete file yet. */
   function photosNow(player: number, activity: number) {
-    const folder = context.profiles.folder(player);
+    const stored = repositories.activitiesRepository.storageDirectory(activity);
+
+    if (!stored || stored.player !== player) {
+      return [];
+    }
+    const folder = activityFolder(context.profiles.folder(player), stored.directory);
     const paths = [];
 
     for (const photo of repositories.activitiesRepository.listActivityImage(player, activity)) {
       if (photo.state === 'ready') {
-        paths.push(resolve(folder, 'images', `${photo.id}.jpg`));
+        paths.push(imagePath(folder, photo.id));
       }
     }
 
     for (const photo of repositories.activitiesRepository.listActivityMedia(player, activity)) {
       if (photo.state === 'ready') {
-        paths.push(
-          resolve(folder, 'medias', `${photo.id}.${photo.content_type.includes('quicktime') ? 'mov' : 'mp4'}`),
-        );
+        paths.push(videoPath(folder, photo.id, photo.content_type));
       }
     }
 
@@ -501,7 +505,7 @@ const make = Effect.gen(function* () {
       await fetch(`https://intervals.icu/api/v1/athlete/${athlete}/activities?${query}`, {
         method: 'POST',
         headers: {
-          Authorization: `Basic ${Buffer.from(`API_KEY:${key}`).toString('base64')}`,
+          Authorization: t('basic', { value1: Buffer.from(`API_KEY:${key}`).toString('base64') }),
         },
         body: form,
         signal: AbortSignal.timeout(30_000),
@@ -616,7 +620,6 @@ const make = Effect.gen(function* () {
     registerJobs: Effect.fn('UploadsService.registerJobs')(function* (runner: JobsService['Service']) {
       registerJobs(runner);
     }),
-    /** Providers with current credentials and consent for this rider. */
     configured: Effect.fn('UploadsService.configured')(function* (player: number) {
       return configured(player);
     }),
@@ -624,7 +627,6 @@ const make = Effect.gen(function* () {
     status: Effect.fn('UploadsService.status')(function* (player: number) {
       return status(player);
     }),
-    /** Each configured provider with this activity's delivery to it, if any. */
     forActivity: Effect.fn('UploadsService.forActivity')(function* (player: number, activity: number) {
       return forActivity(player, activity);
     }),
@@ -659,7 +661,6 @@ const make = Effect.gen(function* () {
     start: Effect.fn('UploadsService.start')(function* () {
       return startNow();
     }),
-    /** Run ready delivery jobs now. */
     drain: Effect.fn('UploadsService.drain')(function* () {
       return yield* Effect.promise(() => drain());
     }),

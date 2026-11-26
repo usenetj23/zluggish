@@ -1,8 +1,8 @@
+import { t } from '#src/i18n/index';
 import { Context, Effect, Layer } from 'effect';
 import { RuntimeContext } from '#src/context';
 import { MessageService } from '#src/services/message.service';
 
-/** What the server needs from any chat bridge it relays riders' chat to. */
 export interface Bridge {
   send(content: string, sender?: string): void;
   online(id: bigint, joining: boolean): void;
@@ -34,7 +34,7 @@ const make = Effect.gen(function* () {
     let pending = 0;
     let stopped = false;
 
-    const send = (content: string, sender = 'Server') => {
+    const send = (content: string, sender = t('server')) => {
       if (stopped || pending >= 100) {
         return;
       }
@@ -54,12 +54,11 @@ const make = Effect.gen(function* () {
         return stopped;
       },
 
-      /** Answers bridge commands and relays anything else to riders in-game. */
       relay(author: string, content: string) {
         const current = settings();
 
         if (content === '!online') {
-          send(`${context.world.online.size} riders online`);
+          send(t('riders_online', { value1: context.world.online.size }));
         } else if (content === '!ping') {
           send('pong');
         } else if (content === '!help' && current.helpMessage) {
@@ -78,7 +77,7 @@ const make = Effect.gen(function* () {
           return;
         }
         const profile = context.profiles.get(Number(id));
-        send(joining ? 'Riding' : 'Leaving', `${profile.firstName} ${profile.lastName}`);
+        send(joining ? t('riding') : t('leaving'), `${profile.firstName} ${profile.lastName}`);
       },
 
       close: async () => {
@@ -91,7 +90,6 @@ const make = Effect.gen(function* () {
   return { open };
 });
 
-/** The behavior every chat bridge shares: commands, bounded delivery and presence. */
 export class ChatService extends Context.Service<ChatService, Effect.Success<typeof make>>()('zluggish/ChatService') {
   static readonly layer = Layer.effect(ChatService, make);
 }

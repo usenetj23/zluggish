@@ -58,7 +58,6 @@ ALTER TABLE activity_upload ADD COLUMN updated_at INTEGER;
 ALTER TABLE power_curve ADD COLUMN activity_id INTEGER;
 `;
 
-// Version 7: indexes for the main queries, and reservation states for media files.
 export const indexesSQL = `
 CREATE INDEX IF NOT EXISTS activity_player_date ON activity(player_id, date);
 CREATE INDEX IF NOT EXISTS activity_player_start ON activity(player_id, start_date);
@@ -85,7 +84,6 @@ ALTER TABLE activity_image ADD COLUMN state TEXT NOT NULL DEFAULT 'ready';
 ALTER TABLE activity_image ADD COLUMN created_at INTEGER;
 `;
 
-// Version 8: independent, permanent web setup state and rider permissions.
 export const administratorSchemaSQL = `
 ALTER TABLE user DROP COLUMN is_admin;
 ALTER TABLE user ADD COLUMN role TEXT NOT NULL DEFAULT 'rider' CHECK(role IN ('rider','administrator'));
@@ -111,7 +109,6 @@ CREATE TABLE management_operation (
 DELETE FROM rider_document WHERE name='encryption_key.bin';
 `;
 
-// Version 9: the management change history is no longer kept.
 export const dropManagementAuditSQL = `
 DROP TABLE management_audit;
 `;

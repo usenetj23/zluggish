@@ -36,7 +36,14 @@ const gameForm: z.ZodType<GameForm> = z.object({
   confirmation: z.string().optional(),
   primary: z.boolean().optional(),
   transient: z.boolean().optional(),
-  user: z.object({ initials: z.string(), photo: z.string().nullable(), email: z.string().nullable() }).optional(),
+  user: z
+    .object({
+      initials: z.string(),
+      photo: z.string().nullable(),
+      email: z.string().nullable(),
+      workout: z.object({ name: z.string(), minutes: z.number() }).nullable().optional(),
+    })
+    .optional(),
 });
 
 /** A launcher page, as the server renders it and as a saved form returns it. */
@@ -46,6 +53,7 @@ export const gamePageModel: z.ZodType<GamePageModel> = z.object({
   csrf: z.string(),
   version: z.string(),
   zwiftVersion: z.string().optional(),
+  webApp: z.string().nullable().optional(),
   forms: z.array(gameForm),
   back: z.object({ href: z.string(), label: z.string() }).optional(),
   message: z.string().optional(),
@@ -54,7 +62,6 @@ export const gamePageModel: z.ZodType<GamePageModel> = z.object({
   errorStatus: z.union([z.literal(400), z.literal(403), z.literal(409)]).optional(),
 });
 
-/** The response to a submitted launcher form. */
 export const savedFormResult: z.ZodType<FormResult<GameSaved>> = z.discriminatedUnion('ok', [
   z.object({
     ok: z.literal(true),

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { t } from '../../lib/i18n/game';
   import { untrack } from 'svelte';
   import { request } from '../../lib/connection';
   import Layout from '../../components/Layout.svelte';
@@ -66,6 +67,8 @@
   });
 </script>
 
+<svelte:head><title>{current.title}</title></svelte:head>
+
 <Layout
   title={current.title}
   page={current.kind}
@@ -73,16 +76,25 @@
   version={current.version}
   zwiftVersion={current.zwiftVersion}
 >
+  {#snippet aside()}
+    {#if current.webApp && (current.kind === 'dashboard' || current.kind === 'login')}
+      <a class="web-app" href={current.webApp} target="_blank" rel="noopener noreferrer">
+        {t('manage_your_account')}
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3h7v7M13 3 4 12" /></svg>
+        <span class="visually-hidden">{t('web_app_hint')}</span>
+      </a>
+    {/if}
+  {/snippet}
   {#if current.warning}<p class="security" role="alert">
-      <strong>Unsafe connection.</strong>
+      <strong>{t('unsafe_connection')}</strong>
       {current.warning}
     </p>{/if}
   {#key failures}{#if current.message}<p class="notice" role={current.failed ? 'alert' : 'status'}>
         {current.message}
       </p>{/if}{/key}
   {#if locked}<p class="error" role="alert">
-      Your session or user changed. <a href="/login/">Sign in</a> or
-      <button type="button" onclick={() => location.reload()}>Reload this page</button>.
+      {t('rider_session_changed')} <a href="/login/">{t('sign_in')}</a>
+      {t('or')} <button type="button" onclick={() => location.reload()}>{t('reload_this_page')}</button>.
     </p>{/if}
   {#each current.forms as model (model.id)}
     <div hidden={current.kind === 'dashboard' && model.id === 'switch'}>
@@ -103,18 +115,54 @@
       >
         {#snippet actions()}
           {#if current.kind === 'dashboard' && model.id === 'launch'}
-            <button type="submit" form="game-form-switch" disabled={locked}>Switch rider</button>
+            <button type="submit" form="game-form-switch" disabled={locked}>{t('switch_rider')}</button>
           {/if}
         {/snippet}
       </Form>
     </div>
   {/each}
-  {#if current.kind === 'dashboard'}
-    <p class="settings-note">Use the separate webapp to change settings.</p>
-  {/if}
 </Layout>
 
 <style>
+  .web-app {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin-left: 0.4rem;
+    padding: 0.3rem 0.7rem 0.3rem 0.8rem;
+    border: 1.5px solid rgb(255 255 255 / 0.35);
+    border-radius: 999px;
+    color: var(--text);
+    font-size: 0.8125rem;
+    font-weight: 700;
+    white-space: nowrap;
+    text-decoration: none;
+  }
+  .web-app svg {
+    width: 0.8rem;
+    height: 0.8rem;
+    fill: none;
+    stroke: var(--orange);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+  .web-app:hover {
+    border-color: var(--orange);
+    background: rgb(255 255 255 / 0.08);
+  }
+  .web-app:focus-visible {
+    outline: 2px solid var(--orange);
+    outline-offset: 2px;
+  }
+  .visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
   /* Sized for the small launcher window: one compact strip above the page. */
   .security {
     max-width: none;
@@ -130,8 +178,5 @@
   .security strong {
     color: var(--text);
     font-weight: 800;
-  }
-  .settings-note {
-    color: var(--muted);
   }
 </style>

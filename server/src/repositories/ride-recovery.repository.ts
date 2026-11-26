@@ -109,7 +109,6 @@ export class RideRecoveryRepository {
     await rm(this.path(player), { force: true });
   }
 
-  /** Wait for every pending append. */
   async idle() {
     await Promise.all(this.writes.values());
   }

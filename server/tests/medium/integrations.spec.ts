@@ -1,6 +1,7 @@
 import { DocumentsService } from '#src/services/documents.service';
 import { responseStatus, inputValue } from '#tests/support/html';
 import type { createGameApp } from '#src/http/app';
+import { createCdn } from '#src/node/network/cdn';
 import { DeliveryRefusedError } from '#src/errors';
 import { UploadsService } from '#src/services/uploads.service';
 import { ActivitySchema } from '#src/protocol/generated/activity_pb';
@@ -283,14 +284,6 @@ await test('launcher assets are served safely and game assets redirect to the CD
   const background = await f.app.request('/style/background.jpg');
   assert.equal(background.status, 200);
   assert.equal(background.headers.get('Content-Type'), 'image/jpeg');
-  const loading = await f.app.request('/static/web/launcher/embed.html');
-  assert.equal(loading.status, 200);
-  assert.match(loading.headers.get('Content-Type')!, /^text\/html; charset=utf-8$/i);
-  const loadingHtml = await loading.text();
-  assert.match(loadingHtml, /Loading Zwift/);
-  assert.match(loadingHtml, /class="wordmark[^"]*">zluggish/);
-  assert.match(loadingHtml, /\/static\/launcher-ui\/[^" ]+\.css/);
-  assert.doesNotMatch(loadingHtml, /bootstrap|\/style\/site\.css/);
   const traversal = await f.app.request('/static/%2e%2e/%2e%2e/tokens.json');
   assert.equal(traversal.status, 404);
   const response9 = await f.app.request('/style/%2e%2e/%2e%2e/README.md');
@@ -302,6 +295,34 @@ await test('launcher assets are served safely and game assets redirect to the CD
   assert.equal(redirect.status, 302);
   // eslint-disable-next-line unicorn/prefer-https -- The launcher must redirect to the HTTP CDN listener.
   assert.equal(redirect.headers.get('Location'), 'http://cdn.zwift.com/gameassets/Game.xml');
+});
+
+await test('the game API and CDN both serve the launcher loading page and its assets', async (t) => {
+  const f = runtimeFixture(t);
+  const env = { incoming: { socket: { remoteAddress: '127.0.0.1', remotePort: 12_345, remoteFamily: 'IPv4' } } };
+
+  for (const [app, origin] of [
+    [f.app, 'https://launcher.zwift.com'],
+    // eslint-disable-next-line unicorn/prefer-https -- The Windows launcher requests this page over HTTP.
+    [createCdn(f), 'http://cdn.zwift.com'],
+  ] as const) {
+    const loading = await app.request(`${origin}/static/web/launcher/embed.html`, undefined, env);
+    assert.equal(loading.status, 200, origin);
+    assert.match(loading.headers.get('Content-Type')!, /^text\/html; charset=utf-8$/i);
+    const loadingHtml = await loading.text();
+    assert.match(loadingHtml, /Loading Zwift/);
+    assert.match(loadingHtml, /Please star us on GitHub/);
+    assert.match(loadingHtml, /class="wordmark[^"]*">zluggish/);
+    assert.doesNotMatch(loadingHtml, /bootstrap|\/style\/site\.css/);
+
+    for (const extension of ['css', 'js']) {
+      const asset = new RegExp(String.raw`"(/static/launcher-ui/[^"]+\.${extension})"`).exec(loadingHtml)?.[1];
+      assert.ok(asset, `Missing launcher ${extension} in ${origin}`);
+      const response = await app.request(origin + asset, undefined, env);
+      assert.equal(response.status, 200, origin + asset);
+      await response.arrayBuffer();
+    }
+  }
 });
 
 await test('mochi files stream in full and by byte range', async (t) => {
@@ -365,7 +386,7 @@ await test('the mobile aggregate composes goals, activities, events and invitati
 
   const body = Schema.decodeUnknownSync(
     Schema.Struct({
-      events: Schema.Array(Schema.Json).check(Schema.isMaxLength(1)),
+      events: Schema.Array(Schema.Struct({ sport: Schema.Literal('CYCLING') })).check(Schema.isMaxLength(1)),
       goals: Schema.Array(Schema.Json),
       activities: Schema.Array(Schema.Json),
       pendingPrivateEventFeed: Schema.Array(Schema.Json),

@@ -4,6 +4,8 @@ services:
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - ../storage/:/usr/src/app/zluggish/storage
+      # Java tools for the Companion app, downloaded only on request. Keeps them across updates.
+      - ../tools/:/usr/src/app/zluggish/tools
     ports:
       - 80:80
       - 443:443
