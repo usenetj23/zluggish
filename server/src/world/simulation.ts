@@ -408,10 +408,12 @@ export class Simulation {
       throw new Error(t('simulation_solo_blob_limit'));
     }
 
+    const owner = this.ownerProfile(Number(id));
+
     const blob = new Blob(
       id,
       index,
-      this.ownerProfile(Number(id))?.ftp || 300,
+      { ftp: owner?.ftp || 300, weightKg: (owner?.weightInGrams ?? 0) / 1000 },
       config,
       this.pool,
       this.runtime.assets,
