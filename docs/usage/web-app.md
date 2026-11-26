@@ -15,7 +15,7 @@ The Zluggish web app is the portal for managing the game, including installing t
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------ |
 | Activities   | Browse rides by month. View the route, elevation and ride statistics. Download FIT files and images.                           |
 | Profile      | Edit your profile and avatar, change your password, and use **Import / Export** to transfer data.                              |
-| Climbs       | See the climb portals you have ridden and your best times.                                                                     |
+| Climbs       | See the climb portals you have ridden, with categories, elevation profiles and best times.                                     |
 | Integrations | Set up [activity uploads and workout imports](integrations/index.md).                                                          |
 | Settings     | Toggle ghosts and regenerate power curves.                                                                                     |
 | Apps         | Set up Zwift for Windows, macOS, Linux or Android, or [install Companion on Android](../install/clients/companion-android.md). |
