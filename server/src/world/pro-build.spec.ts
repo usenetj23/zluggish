@@ -23,7 +23,7 @@ await test('better-ranked riders are stronger, and riders without a rank ride at
   assert.ok(rankStrength(5) > rankStrength(30));
   assert.ok(rankStrength(30) > rankStrength(150));
   assert.ok(rankStrength(150) > rankStrength(400));
-  assert.equal(rankStrength(Number.POSITIVE_INFINITY), 1);
+  assert.equal(rankStrength(Infinity), 1);
 });
 
 await test('climbers are lighter than sprinters, and women lighter than men', () => {

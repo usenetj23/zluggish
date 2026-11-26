@@ -91,7 +91,7 @@ export class RiderPool {
 
   /** Rank and specialty of a profile made here; unranked all-rounders for anything else. */
   traitsOf(id: bigint): ProTraits {
-    return this.traits.get(id) ?? { rank: Number.POSITIVE_INFINITY, specialty: 'rouleur' };
+    return this.traits.get(id) ?? { rank: Infinity, specialty: 'rouleur' };
   }
 
   customizeGhost(profile: PlayerProfile, appearance: (typeof ghostAppearanceSchema)['Type']) {
@@ -185,7 +185,7 @@ export class RiderPool {
     apply(overrides);
 
     const specialty = specialtyOf(source.specialty, profile.weightInGrams / 1000, profile.heightInMillimeters);
-    const rank = this.ranks.get(source) ?? Number.POSITIVE_INFINITY;
+    const rank = this.ranks.get(source) ?? Infinity;
     this.traits.set(id, { rank, specialty });
 
     // Riders file entries without real data get a build that suits their specialty.
