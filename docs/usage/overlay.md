@@ -35,6 +35,11 @@ page instead.
 Every window has a theme, a background texture and a font in its settings. The settings are kept in the browser,
 so each browser keeps its own.
 
+## Mods
+
+Mods written for Sauce for Zwift can add windows of their own. An administrator installs and enables them, see
+[Mods](mods.md).
+
 ## Limits
 
 - The windows only show data. Sending chat, giving Ride Ons and watching another rider are not part of the Overlay

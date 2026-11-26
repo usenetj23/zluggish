@@ -13,6 +13,9 @@ export const webWindowSchema = z.object({
   prettyName: z.string(),
   prettyDesc: z.string().optional(),
   groupTitle: z.string().optional(),
+  /** Set on the windows of a mod (see `windowManifests` of `mods-registry.ts` on the server). */
+  mod: z.boolean().optional(),
+  modId: z.string().optional(),
   query: z.record(z.string(), z.string()).optional(),
   options: z.object({ width: z.number().optional(), height: z.number().optional() }).optional(),
   /** Present when the window has its own settings page. */
@@ -60,4 +63,13 @@ export function popupFeatures(window: WebWindow): string {
   }
 
   return parts.join(',');
+}
+
+export type WindowGroups = { builtin: Array<WebWindow>; mods: Array<WebWindow> };
+
+/** Mod windows apart from the built-ins, so the page can head them 'From mods'. */
+export function groupWindows(windows: Array<WebWindow>): WindowGroups {
+  const isMod = (window: WebWindow) => window.mod === true || window.modId !== undefined;
+
+  return { builtin: windows.filter((window) => !isMod(window)), mods: windows.filter(isMod) };
 }

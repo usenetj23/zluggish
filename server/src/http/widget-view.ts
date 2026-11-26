@@ -5,6 +5,7 @@ the caller hands over the rider packets it already holds and the two ways of ask
 no world, socket or clock is touched here and a test can check the same numbers.
 */
 
+import type { AthleteData } from '#src/world/athlete-data-store';
 import type { WidgetGroupRecord, WidgetNearbyRecord, OverlayRelation } from '#src/dtos/widget-api.dto';
 import { groupRecord, nearbyRecord, riderPoint } from '#src/http/widget-records';
 import type { PlayerProfile } from '#src/protocol/generated/profile_pb';
@@ -139,4 +140,25 @@ export function widgetView(source: ViewSource): WidgetView {
 of the view by athlete id and an unknown id is nothing at all. */
 export function athleteRecord(view: WidgetView, id: number | 'self' | 'watching'): WidgetNearbyRecord | null {
   return typeof id === 'number' ? (view.byId.get(id) ?? null) : view.self;
+}
+
+/**
+A view whose records also carry the free-form data the viewer's mods keep per athlete through
+`updateAthleteData` (Zenmaster's `segmentData`, O101's `o101`): Sauce hands that object back inside the
+athlete record, so every widget reads it as `watching.segmentData`. The record's own keys always win,
+so a mod can never overwrite `state`, `athlete` or `stats`. A view with nothing stored is returned as it is.
+*/
+export function withAthleteData(view: WidgetView, stored: (athleteId: number) => AthleteData | undefined): WidgetView {
+  if (view.nearby.every((record) => stored(record.athleteId) === undefined)) {
+    return view;
+  }
+
+  const nearby = view.nearby.map((record) => {
+    const extra = stored(record.athleteId);
+
+    return extra === undefined ? record : { ...extra, ...record };
+  });
+  const byId = new Map(nearby.map((record) => [record.athleteId, record]));
+
+  return { ...view, nearby, byId, self: nearby.find((record) => record.watching) ?? null };
 }

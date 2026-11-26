@@ -1,12 +1,13 @@
 import { widgetGroupRecordSchema, widgetNearbyRecordSchema } from '#src/dtos/widget-api.dto';
 import type { ViewSource } from '#src/http/widget-view';
-import { athleteRecord, widgetView } from '#src/http/widget-view';
+import { athleteRecord, widgetView, withAthleteData } from '#src/http/widget-view';
 import type { OverlayRelation } from '#src/dtos/widget-api.dto';
 import type { PlayerProfile } from '#src/protocol/generated/profile_pb';
 import { PlayerProfileSchema, Sport } from '#src/protocol/generated/profile_pb';
 import type { PlayerState } from '#src/protocol/generated/udp-node-msgs_pb';
 import { PlayerStateSchema } from '#src/protocol/generated/udp-node-msgs_pb';
 import type { StatsSample, StatsSnapshot } from '#src/world/live-stats';
+import type { AthleteData } from '#src/world/athlete-data-store';
 import { RiderStats } from '#src/world/live-stats';
 import { create } from '@bufbuild/protobuf';
 import { Schema } from 'effect';
@@ -222,6 +223,24 @@ await test('a rider is reachable by id or by the words self and watching', { tim
   assert.equal(athleteRecord(view, 'watching'), view.self);
   assert.equal(athleteRecord(view, 2)?.athleteId, 2);
   assert.equal(athleteRecord(view, 999), null);
+});
+
+await test('the data a mod keeps travels inside the athlete record and never overrides it', { timeout: 10_000 }, () => {
+  const view = widgetView(sourceOf(1, onOneRoad()));
+  const stored = new Map<number, AthleteData>([[2, { segmentData: { laps: 3 }, athleteId: 99 }]]);
+
+  const withData = withAthleteData(view, (id) => stored.get(id));
+  const record = Schema.decodeUnknownSync(
+    Schema.Struct({ segmentData: Schema.Struct({ laps: Schema.Number }), athleteId: Schema.Number }),
+  )(athleteRecord(withData, 2));
+
+  assert.deepEqual(record.segmentData, { laps: 3 });
+  assert.equal(record.athleteId, 2);
+  assert.equal(withData.self?.athleteId, view.self?.athleteId);
+  assert.equal(
+    withAthleteData(view, () => {}),
+    view,
+  );
 });
 
 await test('a rider a minute away is a pack of its own', { timeout: 10_000 }, () => {

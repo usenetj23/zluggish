@@ -4,7 +4,7 @@
   import { decode } from '../lib/api';
   import { requestJson } from '../lib/connection';
   import { t } from '../lib/i18n/index';
-  import { overlayStatus, popupFeatures, settingsUrl, webWindowsResponse, windowUrl } from './overlay';
+  import { groupWindows, overlayStatus, popupFeatures, settingsUrl, webWindowsResponse, windowUrl } from './overlay';
   import type { WebWindow } from './overlay';
 
   let {
@@ -22,6 +22,7 @@
   let savedMessage = $state('');
   let windows = $state<Array<WebWindow> | null>(null);
   let windowsFailure = $state('');
+  const groups = $derived(groupWindows(windows ?? []));
 
   onMount(async () => {
     try {
@@ -85,6 +86,23 @@
   };
 </script>
 
+{#snippet list(items: Array<WebWindow>)}
+  <ul class="windows">
+    {#each items as item (item.type)}
+      <li>
+        <span class="line"><span class="name">{item.prettyName}</span></span>
+        {#if item.prettyDesc}<span class="detail">{item.prettyDesc}</span>{/if}
+        <span class="actions">
+          <button type="button" onclick={() => openWindow(item, windowUrl(item))}>{t('open')}</button>
+          {#if item.settingsFile}
+            <button type="button" onclick={() => openWindow(item, settingsUrl(item))}>{t('settings')}</button>
+          {/if}
+        </span>
+      </li>
+    {/each}
+  </ul>
+{/snippet}
+
 <section class="panel narrow overlay" aria-labelledby="overlay-about">
   <h2 id="overlay-about">{t('overlay_heading')}</h2>
   <p class="lead">{t('overlay_lead')}</p>
@@ -113,21 +131,13 @@
     {#if windows === null && !windowsFailure}
       <p role="status">{t('loading')}</p>
     {:else if windows}
-      <ul class="windows">
-        {#each windows as item (item.type)}
-          <li>
-            <span class="line"><span class="name">{item.prettyName}</span></span>
-            {#if item.prettyDesc}<span class="detail">{item.prettyDesc}</span>{/if}
-            <span class="actions">
-              <button type="button" onclick={() => openWindow(item, windowUrl(item))}>{t('open')}</button>
-              {#if item.settingsFile}
-                <button type="button" onclick={() => openWindow(item, settingsUrl(item))}>{t('settings')}</button>
-              {/if}
-            </span>
-          </li>
-        {/each}
-      </ul>
+      {@render list(groups.builtin)}
+      {#if groups.mods.length > 0}
+        <h3>{t('overlay_mod_windows')}</h3>
+        {@render list(groups.mods)}
+      {/if}
     {/if}
+    <p class="hint"><a href="/pages/mods.html" target="_blank" rel="noopener">{t('overlay_manage_mods')}</a></p>
   </section>
 {/if}
 
@@ -156,6 +166,9 @@
     display: inline-flex;
     align-items: center;
     gap: 0.5rem;
+  }
+  h3 {
+    margin: 1.2rem 0 0.6rem;
   }
   .windows {
     list-style: none;

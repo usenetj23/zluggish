@@ -20,6 +20,8 @@ import { webProfileRoutes } from '#src/http/web-profile';
 import { widgetApiRoutes } from '#src/http/routes/widget-api';
 import { overlayRoutes } from '#src/http/routes/overlay';
 import { widgetStaticRoutes } from '#src/http/routes/widget-pages';
+import { modStaticRoutes } from '#src/http/routes/mods';
+import { ModRegistry } from '#src/world/mods-registry';
 import { OverlayOptIn } from '#src/world/overlay-optin';
 import { Hono } from 'hono';
 import { HTTPException } from 'hono/http-exception';
@@ -35,7 +37,7 @@ import { climbFacts, readClimbSegments, readClimbs } from '#src/http/climbs';
 import { peerAddress } from '#src/http/routes/accounts';
 import { WORLD_TIME_EPOCH_MS } from '#src/world/state';
 import { isIP } from 'node:net';
-import { resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { packageRoot, packageVersion, supportedZwiftVersion } from '#src/config/load';
 
 export type WebEnv = { Variables: { sessionId: string; csrf: string } };
@@ -108,7 +110,13 @@ export function createWebApp(runtime: HttpRuntime) {
       c.req.method === 'PUT' &&
       (c.req.path === '/api/me/avatar' || /^\/api\/manage\/users\/\d+\/avatar$/.test(c.req.path));
 
-    return bodyLimit({ maxSize: upload ? 81 * 1024 * 1024 : avatar ? 2 * 1024 * 1024 : 64 * 1024 })(c, next);
+    // `installModFromZip` carries a whole mod archive as base64 in the RPC body (about 18 MB of archive
+    // in about 24 MB of text): that one call gets a limit of its own.
+    const modZip = c.req.method === 'POST' && c.req.path === '/api/rpc/v1/installModFromZip';
+
+    return bodyLimit({
+      maxSize: upload ? 81 * 1024 * 1024 : modZip ? 26 * 1024 * 1024 : avatar ? 2 * 1024 * 1024 : 64 * 1024,
+    })(c, next);
   });
   app.use('*', async (c, next) => {
     c.header('Cache-Control', 'no-store');
@@ -384,11 +392,14 @@ export function createWebApp(runtime: HttpRuntime) {
   );
   webConnectionRoutes(app, runtime);
   webProfileRoutes(app, runtime);
-  widgetApiRoutes(app, runtime);
+  // The mods of `storage/mods`, one registry for the widget API, the pages and the mod files alike.
+  const modRegistry = new ModRegistry(join(runtime.config.storageDir, 'mods'));
+  widgetApiRoutes(app, runtime, modRegistry);
   // The Overlay opt-in of every rider, one store for the API route and the pages alike.
   const overlayOptIn = new OverlayOptIn(runtime.config.storageDir);
   overlayRoutes(app, runtime, overlayOptIn);
-  widgetStaticRoutes(app, runtime, overlayOptIn);
+  widgetStaticRoutes(app, runtime, modRegistry, overlayOptIn);
+  modStaticRoutes(app, runtime, modRegistry);
 
   appRoutes.get('/api/tls', (c) =>
     Effect.gen(function* () {

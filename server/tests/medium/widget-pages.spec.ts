@@ -180,7 +180,7 @@ statically and the Watching page does not start without it (see `assets/sauce/AT
 Nothing referenced may 404.
 */
 await test(
-  'the seventeen Sauce HTML pages close over every file they reference, and the app serves all of them',
+  'the eighteen Overlay HTML pages close over every file they reference, and the app serves all of them',
   { timeout: 60_000 },
   async (t) => {
     const f = await mediumFixture(t);
@@ -204,6 +204,7 @@ await test(
       `${origin}/pages/gauges/wbal.html`,
       `${origin}/pages/gauges/draft.html`,
       `${origin}/pages/gauges/settings.html`,
+      `${origin}/pages/mods.html`,
       // The Watching layout template is fetched at run time by `fetch`, so a static scan misses it: it
       // must be an extra closure root of its own.
       `${origin}/pages/templates/watching-screen-layout.html.tpl`,
@@ -527,6 +528,11 @@ const reviewed = [
     why: 'only the `?test` mock-message generator, and the page policy blocks it',
   },
   { file: 'pages/src/charts.mjs', host: 'www.w3.org', why: 'an SVG namespace string, never fetched' },
+  {
+    file: 'pages/mods.html',
+    host: 'github.com',
+    why: 'example text of the GitHub link field, never fetched by the page',
+  },
   {
     file: 'pages/src/nearby.mjs',
     host: 'www.zwift.com',

@@ -211,6 +211,8 @@ export const RiderDocumentName = {
   EncryptionKeyBin: 'encryption_key.bin',
   RelayAuthVersion: 'relay-auth-version',
   RelayNonceHistory: 'relay-nonce-history',
+  /** The settings the widget pages and mods keep for one rider (`setSetting`). */
+  WidgetSettingsJson: 'overlay-settings.json',
 } as const;
 
 export type RiderDocumentName = (typeof RiderDocumentName)[keyof typeof RiderDocumentName];

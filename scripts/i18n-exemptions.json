@@ -568,5 +568,15 @@
     "file": "server/src/http/routes/widget-pages.ts",
     "value": "public, max-age=3600",
     "reason": "Protocol, generated script syntax, or external format identifier; must remain literal."
+  },
+  {
+    "file": "server/src/http/routes/widget-pages.ts",
+    "value": "default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; {value1}{value2} connect-src 'self'{value3} https: wss:; frame-ancestors 'self'; base-uri 'none'",
+    "reason": "Content-Security-Policy header syntax; never shown to a person."
+  },
+  {
+    "file": "server/src/world/mod-store.ts",
+    "value": "ZluggishOverlay/1.0 (self-hosted mod installer)",
+    "reason": "HTTP User-Agent header for mod downloads."
   }
 ]

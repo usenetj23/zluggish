@@ -356,7 +356,8 @@ if (window.isElectron) {
     // out as POST with the CSRF token of the web app session, which only this site's pages can read.
     const mutatingRPCs = new Set(['chatMessage', 'giveRideon', 'startLap', 'resetStats', 'watch',
                                   'updateAthlete', 'setFollowing', 'setNotFollowing', 'toggleMarkedAthlete',
-                                  'setModEnabled', 'removeMod', 'installMod', 'updateAthleteData',
+                                  'setModEnabled', 'setModNetwork', 'removeMod', 'installMod',
+                                  'installModFromGitHub', 'installModFromZip', 'updateAthleteData', 'setSetting',
                                   'runUserAction', 'expandUserAction', 'collapseUserAction', 'powerup',
                                   'setAppSettings']);
     let csrfToken;

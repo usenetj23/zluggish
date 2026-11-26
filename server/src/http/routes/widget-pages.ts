@@ -7,6 +7,8 @@ import type { HttpRuntime } from '#src/http/runtime';
 import type { WebEnv } from '#src/http/web-app';
 import { FilesService } from '#src/services/files.service';
 import { WebSessionsService } from '#src/services/web-session.service';
+import { injectModContent } from '#src/world/mod-content';
+import type { ModRegistry } from '#src/world/mods-registry';
 import type { OverlayOptIn } from '#src/world/overlay-optin';
 import { Effect } from 'effect';
 import type { Context, Hono } from 'hono';
@@ -93,22 +95,50 @@ body { background: #1b1b1f; color: #e8e8ec; font: 16px/1.5 system-ui, sans-serif
 </html>
 `;
 
+/** CSP source expressions for SHA-256 digests. */
+const digests = (hashes: ReadonlyArray<string>) => hashes.map((hash) => ` 'sha256-${hash}'`).join('');
+
+/** What a page may do beyond the plain page policy. */
+export interface PagePermissions {
+  /** `'unsafe-eval'`, for the pages whose template engine compiles functions. */
+  allowEval?: boolean;
+  /** The CSP digests of the inline scripts of a mod page (see `inlineScriptHashes`). */
+  scriptHashes?: ReadonlyArray<string>;
+  /** The CSP digests of the inline event handler attributes of a mod page (see `inlineHandlerHashes`). */
+  handlerHashes?: ReadonlyArray<string>;
+  /** A mod the administrator granted the network: images, media, styles, fonts and fetches from other hosts. */
+  network?: boolean;
+}
+
 /**
 The page policy replaces the global one for these documents: the pages talk to this server over a
 WebSocket, so `connect-src` adds the same host the page was loaded from. Scripts stay `'self'` only —
-the vendored inline scripts were moved to files precisely because inline scripts are forbidden.
-`frame-ancestors 'self'`: a page may only be framed by a page of this same server, never by another
-site.
+the vendored inline scripts were moved to files precisely because inline scripts are forbidden. A mod
+page gets the digests of its OWN inline scripts and handlers, never `'unsafe-inline'` and never
+`'unsafe-eval'`. A mod granted the network may reach other hosts for everything but scripts, so
+third-party CODE stays forbidden. `frame-ancestors 'self'`: a page may only be framed by a page of this
+same server, never by another site.
 */
-export function pagePolicy(url: string, host: string | undefined, allowEval: boolean): string {
+export function pagePolicy(url: string, host: string | undefined, permissions: PagePermissions = {}): string {
+  const { allowEval = false, scriptHashes = [], handlerHashes = [], network = false } = permissions;
   const scheme = url.startsWith('https:') ? 'wss' : 'ws';
   const socket = host && hostHeader.test(host) ? ` ${scheme}://${host}` : '';
-  const scripts = `script-src 'self'${allowEval ? " 'unsafe-eval'" : ''};`;
+  const scripts = `script-src 'self'${allowEval ? " 'unsafe-eval'" : ''}${digests(scriptHashes)};`;
+  const attributes = handlerHashes.length > 0 ? ` script-src-attr 'unsafe-hashes'${digests(handlerHashes)};` : '';
 
-  return `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; ${scripts} connect-src 'self'${socket}; frame-ancestors 'self'; base-uri 'none'`;
+  if (!network) {
+    return `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; ${scripts}${attributes} connect-src 'self'${socket}; frame-ancestors 'self'; base-uri 'none'`;
+  }
+
+  return `default-src 'self'; img-src 'self' data: blob: https:; media-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; ${scripts}${attributes} connect-src 'self'${socket} https: wss:; frame-ancestors 'self'; base-uri 'none'`;
 }
 
-export function widgetStaticRoutes(app: Hono<WebEnv>, runtime: HttpRuntime, optIn: OverlayOptIn): void {
+export function widgetStaticRoutes(
+  app: Hono<WebEnv>,
+  runtime: HttpRuntime,
+  registry: ModRegistry,
+  optIn: OverlayOptIn,
+): void {
   const appRoutes = effectRoutes(app, runtime);
   const root = resolve(packageRoot(), '../assets/sauce');
   const sessions = runtime.effects.runSync(WebSessionsService);
@@ -177,7 +207,7 @@ export function widgetStaticRoutes(app: Hono<WebEnv>, runtime: HttpRuntime, optI
             return c.body(unavailablePage(), 200, {
               'Content-Type': types.get('.html') ?? 'application/octet-stream',
               'Cache-Control': 'no-cache',
-              'Content-Security-Policy': pagePolicy(c.req.url, c.req.header('Host'), false),
+              'Content-Security-Policy': pagePolicy(c.req.url, c.req.header('Host')),
             });
           }
 
@@ -188,9 +218,19 @@ export function widgetStaticRoutes(app: Hono<WebEnv>, runtime: HttpRuntime, optI
           'Content-Type': types.get(extension) ?? 'application/octet-stream',
           'Cache-Control': html || !longCached.has(extension) ? 'no-cache' : 'public, max-age=3600',
           ...(html && {
-            'Content-Security-Policy': pagePolicy(c.req.url, c.req.header('Host'), evalPages.has(path)),
+            'Content-Security-Policy': pagePolicy(c.req.url, c.req.header('Host'), { allowEval: evalPages.has(path) }),
           }),
         };
+
+        // The content scripts and styles of the enabled mods reach every widget page, the settings pages
+        // included, as Sauce injects them into every window. Without any, the page streams untouched.
+        if (html && prefix === '/pages') {
+          const content = registry.contentFiles();
+
+          if (content.scripts.length + content.styles.length > 0) {
+            return c.body(injectModContent(yield* filesService.readText(file), content), 200, headers);
+          }
+        }
 
         return yield* fileResponse(c, file, headers);
       }),

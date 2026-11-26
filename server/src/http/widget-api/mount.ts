@@ -7,6 +7,8 @@ import type { ChannelFactory } from '#src/http/widget-api/channels';
 import { powerZones } from '#src/world/power-zones';
 import { chatRpcs } from '#src/http/widget-api/chat';
 import { coreRpcs } from '#src/http/widget-api/core';
+import { modRpcs } from '#src/http/widget-api/mods';
+import { storageRpcs } from '#src/http/widget-api/storage';
 import type { WebEnv } from '#src/http/web-app';
 import type { RpcHandlers, RpcCall } from '#src/http/widget-api/rpc';
 import type { WidgetDeps } from '#src/http/widget-api/deps';
@@ -38,9 +40,17 @@ test can hand over a world of its own; `widgetApiRoutes` wires it to the runtime
 */
 
 /** The RPC names that change the world. They mutate on POST only (see `call`): a GET must never
-mutate, because the `SameSite=Lax` session cookie rides along on a cross-site top-level navigation.
-Every call of this part of the API only reads; the parts that write add their names here. */
-const mutatingCalls: ReadonlySet<string> = new Set<string>();
+mutate, because the `SameSite=Lax` session cookie rides along on a cross-site top-level navigation. */
+const mutatingCalls: ReadonlySet<string> = new Set([
+  'setSetting',
+  'updateAthleteData',
+  'setModEnabled',
+  'setModNetwork',
+  'removeMod',
+  'installMod',
+  'installModFromGitHub',
+  'installModFromZip',
+]);
 
 const decodeArgument = Schema.decodeUnknownSync(Schema.fromJsonString(Schema.Unknown));
 
@@ -162,7 +172,7 @@ function answered(name: string, args: Array<unknown>, view: WidgetView) {
 export function mountWidgetApi(app: Hono<WebEnv>, deps: WidgetDeps): void {
   // The RPCs answered by a handler of their own; any other name is answered from the view (see
   // `answered`) or refused as not implemented.
-  const handlers: RpcHandlers = { ...coreRpcs(), ...chatRpcs(deps) };
+  const handlers: RpcHandlers = { ...coreRpcs(deps), ...chatRpcs(deps), ...storageRpcs(deps), ...modRpcs(deps) };
   mountEventSocket(app, deps, [quietStreams]);
 
   app.use('/api/rpc/*', async (c: Context<WebEnv>, next: Next) => {

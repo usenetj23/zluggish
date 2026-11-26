@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<!-- Written for Zluggish (not part of Sauce for Zwift): the page that lists, installs and enables the mods of the Overlay. -->
+<html tabindex="0" data-settings-key="mods-v1">
+    <head>
+        <meta charset="utf-8"/>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+        <meta http-equiv="Content-Security-Policy" content="script-src 'self';"/>
+
+        <title>Mods - Zluggish Overlay</title>
+
+        <script src="./src/preloads.js"></script>
+
+        <link id="favicon" rel="shortcut icon" href="images/favicon.png"/>
+        <link rel="stylesheet" href="css/common.css"/>
+        <link rel="stylesheet" href="css/mods.css"/>
+
+        <script type="module" src="./src/boot-mods.mjs"></script>
+    </head>
+    <body>
+        <div id="titlebar" tabindex="0" class="always-visible">
+            <header>
+                <div class="logo"><img src="images/icon128.png"/></div>
+                <div class="title">Mods</div>
+            </header>
+        </div>
+        <div id="content">
+            <p class="warning"><ms>warning</ms> A mod is code written by somebody else that runs inside the Overlay with the
+                session of whoever opens its window. Only an administrator can add, enable or remove mods, and a mod that
+                changes after it was enabled is switched off until it is approved again.</p>
+            <p class="hint">Internet access is off for every mod until an administrator allows it: the windows of a mod then
+                may load data, images and fonts from any web address. Scripts from other addresses stay blocked.</p>
+            <div class="admin-note" hidden>You are not an administrator: you can see the mods, not change them.</div>
+            <div class="mod-errors" role="alert" hidden></div>
+            <h3>Installed mods</h3>
+            <div class="mods"><i>Loading...</i></div>
+            <div class="store" hidden>
+                <h3>Mod store</h3>
+                <p class="hint">The Sauce for Zwift mod store lists mods by their authors. The server reads the store
+                    directory and downloads a release only when you press Install; it checks the size and SHA-256 before it
+                    unpacks anything. An installed mod starts disabled.</p>
+                <p class="hint">The store's file server (mod-api.sauce.llc) is no longer online. Zluggish installs a store mod
+                    from the GitHub repository it lists, and mods that list none can be installed from a ZIP file (zip the
+                    mod folder that contains manifest.json).</p>
+                <div class="store-controls">
+                    <button type="button" class="primary load-store"><ms>download</ms> Browse the store</button>
+                    <input type="text" class="store-filter" placeholder="filter" hidden/>
+                </div>
+                <div class="store-list"></div>
+                <h3>Install from GitHub</h3>
+                <p class="hint">Many mods live in a GitHub repository. Paste its link (for example
+                    <code>https://github.com/owner/name</code>, a branch or release page also works) or type
+                    <code>owner/name</code>; the server downloads that repository as a zip (nothing from the web page is
+                    run). The archive has no published checksum, so read what you are enabling: the mod stays disabled until
+                    you enable it.</p>
+                <div class="store-controls github">
+                    <input type="text" class="github-repo" placeholder="https://github.com/owner/name" size="40" autocomplete="off"/>
+                    <input type="text" class="github-ref" placeholder="branch or tag (optional)" size="22" autocomplete="off"/>
+                    <button type="button" class="primary install-github"><ms>download</ms> Install</button>
+                    <span class="result github-result"></span>
+                </div>
+            </div>
+        </div>
+    </body>
+</html>

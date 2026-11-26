@@ -58,7 +58,9 @@ Changed HTML pages say so in a comment at their top; in scripts and stylesheets 
    because Zluggish does not ship those pages.
 5. `pages/src/common.mjs`, `rpcCall`: the calls that change the world are sent as `POST /api/rpc/v1/<name>` with the
    `X-CSRF-Token` of the web app session (read from `/api/me`), never as a GET. A GET with a `SameSite=Lax` cookie can
-   be fired by a page on another site with a plain navigation; a POST with a token cannot.
+   be fired by a page on another site with a plain navigation; a POST with a token cannot. `setSetting` and the mod
+   calls (`setModNetwork`, `installModFromGitHub`, `installModFromZip`) are on that list too, because Zluggish
+   answers them only as a POST.
 6. Icons. `pages/images/icon{32,64,128,256}.png` and `favicon.png` show Zluggish's logo instead of Sauce's.
    `pages/images/powerups/*.svg` are plain Zluggish-drawn circles with a short label, under the file names
    `fields.mjs` asks for. The gauge needle is always the plain pointer (`pages/src/gauge.mjs`), because the logo
@@ -86,6 +88,11 @@ Changed HTML pages say so in a comment at their top; in scripts and stylesheets 
     of Watching are sorted alphabetically. Colour inputs of the settings pages have titles.
 
 Everything else is byte for byte what upstream has at the commit above.
+
+## Written for Zluggish
+
+These files are not from upstream and say so at their top: `pages/mods.html`, `pages/src/mods.mjs`,
+`pages/src/boot-mods.mjs` and `pages/scss/mods.scss` (the page that lists, installs and enables mods).
 
 ## Updating
 

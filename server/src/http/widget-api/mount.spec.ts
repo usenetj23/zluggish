@@ -16,6 +16,9 @@ import { widgetView } from '#src/http/widget-view';
 import type { ChatMessage } from '#src/world/chat-log';
 import { World } from '#src/world/state';
 import { ChatLog } from '#src/world/chat-log';
+import { AthleteDataStore } from '#src/world/athlete-data-store';
+import type { AthleteDataValue } from '#src/world/athlete-data-store';
+import { ModRegistry } from '#src/world/mods-registry';
 import { PlayerProfileSchema, Sport } from '#src/protocol/generated/profile_pb';
 import type { PlayerState } from '#src/protocol/generated/udp-node-msgs_pb';
 import { PlayerStateSchema, WA_TYPE, WorldAttributeSchema } from '#src/protocol/generated/udp-node-msgs_pb';
@@ -91,6 +94,24 @@ type Chatter = { log: ChatLog; listeners: { open: number } };
 
 const chatter = (): Chatter => ({ log: new ChatLog(), listeners: { open: 0 } });
 
+/** The settings of every rider in memory, one map per rider. */
+const settingsStore = (): WidgetDeps['settings'] => {
+  const stored = new Map<number, Map<string, AthleteDataValue>>();
+
+  return {
+    get: (viewerId, key) => stored.get(viewerId)?.get(key),
+    set: (viewerId, key, setting) => {
+      stored.set(viewerId, new Map(stored.get(viewerId)).set(key, setting));
+
+      return true;
+    },
+  };
+};
+
+const athleteDataOf = (store: AthleteDataStore): WidgetDeps['athleteData'] => ({
+  update: (viewer, athleteId, data) => store.update(viewer, athleteId, data),
+});
+
 /** A signed-in rider, this server's Origin and a world of two riders, unless a test says otherwise. */
 const depsOf = (logged: Array<string>, overrides: Partial<WidgetDeps> = {}, talk: Chatter = chatter()): WidgetDeps => ({
   viewer: () => 1,
@@ -112,6 +133,16 @@ const depsOf = (logged: Array<string>, overrides: Partial<WidgetDeps> = {}, talk
   log: (event, message) => {
     logged.push(`${event} ${message}`);
   },
+  settings: settingsStore(),
+  athleteData: athleteDataOf(new AthleteDataStore()),
+  // A mods folder that does not exist: no mod at all.
+  mods: new ModRegistry('/nonexistent/zluggish-mods'),
+  modStore: {
+    directory: () => Promise.resolve([]),
+    download: () => Promise.reject(new Error('unknown store mod')),
+    downloadGitHub: () => Promise.reject(new Error('invalid repository')),
+  },
+  isAdministrator: () => false,
   ...overrides,
 });
 
@@ -1872,3 +1903,87 @@ await test(
     assert.deepEqual(await version.json(), { success: true, value: 'zluggish' });
   },
 );
+
+/** The HTTP status of one answer of the API. */
+const statusOf = async (answer: Response | Promise<Response>) => {
+  const response = await answer;
+
+  return response.status;
+};
+
+await test(
+  'a setting is stored by a POST of this site and read back with its default',
+  { timeout: 20_000 },
+  async () => {
+    const deps = depsOf([]);
+
+    assert.equal(await statusOf(get(deps, `/api/rpc/v2/setSetting/${arg('theme')}/${arg('dark')}`)), 405);
+    assert.deepEqual(
+      await answerOf(await get(deps, `/api/rpc/v2/getSetting/${arg('theme')}/${arg('light')}`), Schema.String),
+      {
+        success: true,
+        value: 'light',
+      },
+    );
+
+    assert.equal(await statusOf(post(deps, '/api/rpc/v1/setSetting', ['theme', 'dark'])), 200);
+    assert.deepEqual(
+      await answerOf(await get(deps, `/api/rpc/v2/getSetting/${arg('theme')}/${arg('light')}`), Schema.String),
+      {
+        success: true,
+        value: 'dark',
+      },
+    );
+
+    assert.equal(await statusOf(post(deps, '/api/rpc/v1/setSetting', ['../theme', 'dark'])), 400);
+    assert.equal(
+      await statusOf(post(depsOf([], { originAllowed: () => false }), '/api/rpc/v1/setSetting', ['theme', 'x'])),
+      403,
+    );
+  },
+);
+
+await test('updateAthleteData merges an object and refuses anything else', { timeout: 20_000 }, async () => {
+  const deps = depsOf([]);
+
+  await post(deps, '/api/rpc/v1/updateAthleteData', [2, { laps: 1, name: 'a' }]);
+
+  const merged = await answerOf(
+    await post(deps, '/api/rpc/v1/updateAthleteData', [2, { laps: 2, name: null }]),
+    Schema.Record(Schema.String, Schema.Unknown),
+  );
+
+  assert.deepEqual(merged.value, { laps: 2 });
+  assert.equal(await statusOf(post(deps, '/api/rpc/v1/updateAthleteData', [2, [1, 2]])), 400);
+  assert.equal(await statusOf(post(deps, '/api/rpc/v1/updateAthleteData', ['nobody', {}])), 400);
+});
+
+await test('mod changes are for an administrator of this site only', { timeout: 20_000 }, async () => {
+  const deps = depsOf([]);
+
+  assert.deepEqual(await answerOf(await get(deps, '/api/rpc/v2/getAvailableMods'), Schema.Array(Schema.Unknown)), {
+    success: true,
+    value: [],
+  });
+
+  for (const [name, args] of [
+    ['setModEnabled', ['some-mod', true, 'hash']],
+    ['removeMod', ['some-mod']],
+    ['installModFromGitHub', ['owner/repo']],
+    ['installModFromZip', ['UEsFBgAAAAAAAAAAAAAAAAAAAAAAAA==']],
+  ] as const) {
+    assert.equal(await statusOf(post(deps, `/api/rpc/v1/${name}`, args)), 403, name);
+  }
+
+  assert.equal(await statusOf(get(deps, '/api/rpc/v2/getModStore')), 403);
+
+  const admin = depsOf([], { isAdministrator: () => true });
+
+  assert.equal(await statusOf(post(admin, '/api/rpc/v1/setModEnabled', ['some-mod', true])), 400);
+  assert.equal(await statusOf(post(admin, '/api/rpc/v1/setModEnabled', ['some-mod', true, 'hash'])), 400);
+  assert.equal(await statusOf(post(admin, '/api/rpc/v1/installModFromGitHub', ['not a repo'])), 400);
+  assert.equal(await statusOf(post(admin, '/api/rpc/v1/installModFromZip', [''])), 400);
+  const foreign = depsOf([], { isAdministrator: () => true, originAllowed: () => false });
+
+  assert.equal(await statusOf(post(foreign, '/api/rpc/v1/removeMod', ['x'])), 403);
+});
