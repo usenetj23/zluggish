@@ -1,8 +1,8 @@
+import { t } from '#src/i18n/index';
 import { packageRoot } from '#src/config/load';
 import type { FormResult, GamePageModel, GameSaved } from '#src/dtos/game-app.dto';
 import { browserJson } from '#src/http/game/results';
 import { RuntimeContext } from '#src/context';
-import type { RuntimeEnv } from '#src/http/runtime';
 import type { Context } from 'hono';
 import { Effect, Schema } from 'effect';
 import { FilesService } from '#src/services/files.service';
@@ -29,18 +29,14 @@ const document = Effect.fn('game.document')(function* (props: GamePageModel, ren
   const entry = manifest['src/game/client.ts'];
 
   if (!entry) {
-    throw new Error('Build the game app with pnpm build:web first');
+    throw new Error(t('game_render_game_build_missing'));
   }
 
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width">${rendered.head}${(entry.css ?? []).map((file) => `<link rel="stylesheet" href="/static/launcher-ui/${file}">`).join('')}</head><body><div id="launcher-ui">${rendered.body}</div><script type="application/json" id="launcher-props">${serialize(props)}</script><script type="module" src="/static/launcher-ui/${entry.file}"></script></body></html>`;
 });
 
 /** The launcher page for model, or its form result as JSON when the browser posted with fetch. */
-export const gamePage = Effect.fn('game.page')(function* (
-  c: Context<RuntimeEnv>,
-  page: GamePageModel,
-  redirect?: string,
-) {
+export const gamePage = Effect.fn('game.page')(function* (c: Context, page: GamePageModel, redirect?: string) {
   const { config } = yield* RuntimeContext;
   const shown: GamePageModel = { ...page, webApp: config.network.web.enabled ? config.network.web.publicUrl : null };
 
@@ -51,15 +47,14 @@ export const gamePage = Effect.fn('game.page')(function* (
     tls.mode() === 'legacy'
       ? {
           ...shown,
-          warning:
-            'This server uses the shared Zwift certificate, whose private key is public. Others on your network could read your Zwift traffic, password included. Ask the server administrator to set up a server certificate.',
+          warning: t('game_render_shared_certificate_warning'),
         }
       : shown;
 
   if (c.req.method === 'POST' && browserJson(c)) {
     const result: FormResult<GameSaved> = model.failed
-      ? { ok: false, message: model.message ?? 'The form could not be saved.' }
-      : { ok: true, data: { page: model }, message: model.message ?? 'Saved.' };
+      ? { ok: false, message: model.message ?? t('game_render_form_save_error') }
+      : { ok: true, data: { page: model }, message: model.message ?? t('saved') };
 
     return c.json(result, model.failed ? (model.errorStatus ?? 400) : 200);
   }

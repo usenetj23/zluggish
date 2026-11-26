@@ -16,8 +16,8 @@ Finish all active rides before you import.
 ## Import
 
 1. Sign in to the [web app](../usage/web-app.md) as the destination user.
-2. Open **Import**.
-3. Select **Local files** to upload files, or **Zwift connection** to download them from your official account.
+2. On your **Profile** page, select **Import / Export**.
+3. Select **Import from local files** to upload files, or **Import from Zwift** to download them from your official account.
 4. For a file import, select the files. The form accepts `profile.bin`, `achievements.bin`, `economy_config.txt`, `user_storage.bin` and `streaks.bin`.
 5. On the confirmation step, make sure that the source name, the source ID and the destination user are correct.
 6. If the form shows a warning about a duplicate or unknown source, confirm it.
@@ -51,7 +51,7 @@ Do not copy files into `storage/<local-player-id>` or into a folder with the off
 
 ## Export your data
 
-1. Open **Export** in the web app.
+1. On your **Profile** page, select **Import / Export** and find **Export your user data**.
 2. Download the user files.
 
 ## Calculate the power curves again

@@ -1,3 +1,4 @@
+import { t } from '#src/i18n/index';
 import { DeliveryRefusedError, refused } from '#src/errors';
 import type { RiderDocuments } from '#src/repositories/rider-document.repository';
 import { SessionRepository } from '#src/repositories/session.repository';
@@ -87,7 +88,7 @@ export class GarminRepository {
 
   garminClient(store: TokenStore | null, domain: string) {
     if (!['garmin.com', 'garmin.cn'].includes(domain)) {
-      throw new Error('Unsupported Garmin domain');
+      throw new Error(t('unsupported_garmin_domain'));
     }
 
     return new GarminClient({
@@ -103,7 +104,7 @@ export class GarminRepository {
     const tokens = client.getTokens();
 
     if (!tokens) {
-      throw new Error('Missing Garmin authorization');
+      throw new Error(t('missing_garmin_authorization'));
     }
     await store.save(tokens);
   }
